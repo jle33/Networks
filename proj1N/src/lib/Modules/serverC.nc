@@ -40,9 +40,11 @@ implementation{
 	}
 	
 	event void ServerTimer.fired(){
-		if(! call TCPSocket.isClosed(mServer.socket) ){
+	
+	
+		if( call TCPSocket.isClosed(mServer.socket) == FALSE){ // had a ! in front
+		 
 			TCPSocketAL connectedSock;
-
 			//Attempt to Establish a Connection
 			if(call TCPSocket.accept(mServer.socket, &(connectedSock)) == TCP_ERRMSG_SUCCESS){
 				serverWorkerAL newWorker;
@@ -55,7 +57,8 @@ implementation{
 				mServer.numofWorkers++;
 				serverWorkerListPushBack(&workers, newWorker);
 			}
-		}else{ //Shutdown
+		}else{
+				//Shutdown
 			//Socket is closed, shutdown
 			dbg("serverAL", "serverAL - Server Shutdown\n" );
 			
@@ -131,7 +134,7 @@ implementation{
 			dbg("serverAL", "Data Read: %d\n", worker->position);
 			dbg("serverAL", "Close Time: %d\n", closeTime);
 			//call TCPManager.freeSocket(worker.socket);
-			call TCPManager.freeSocket(worker->socket); //The Fix?
+			call TCPManager.freeSocket(worker->socket); //The Fix?--James added
 			serverWorkerListRemoveValue(&workers, *worker); return;
 		}
 	}

@@ -21,16 +21,17 @@ for line in f:
    
 # Channels used for debuging
 #t.addChannel("genDebug", sys.stdout)
-#t.addChannel("cmdDebug", sys.stdout)
+t.addChannel("cmdDebug", sys.stdout)
 #t.addChannel("Project1F", sys.stdout)
 #t.addChannel("Project1N", sys.stdout)
 #t.addChannel("mydebug", sys.stdout)
 #t.addChannel("hashmap", sys.stdout)
 #t.addChannel("Project2", sys.stdout)
 #t.addChannel("Project2D", sys.stdout)
-t.addChannel("Project3", sys.stdout)
+#t.addChannel("Project3", sys.stdout)
 t.addChannel("clientAL", sys.stdout)
 t.addChannel("serverAL", sys.stdout)
+t.addChannel("project3", sys.stdout)
 
 noise = open("no_noise.txt", "r")
 
@@ -68,7 +69,7 @@ def runTime(amount):
 msg = pack()
 msg.set_seq(300)
 msg.set_TTL(15)
-msg.set_protocol(4)
+msg.set_protocol(99)
 
 pkt = t.newPacket()
 pkt.setData(msg.data)
@@ -100,8 +101,11 @@ def sendCMD(string):
 #sendCMD("1 1 Run now!")
 #sendCMD("1 5 Hello BRO!")
 
-
 runTime(200)
+#sendCMD("6 6 hello");
 #sendCMD("6 6 cmd ping 3 Hello");
-sendCMD("6 1 Hello")
+#sendCMD("1 3 hello")
+#sendCMD("4 4 cmd server 29")
+sendCMD("2 2 cmd client 99 29 4")
+
 

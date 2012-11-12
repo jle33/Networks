@@ -25,8 +25,12 @@
 #include "dataStructures/hashmapLSP.h"
 #include "dataStructures/Dijkstra.h"
 #include "TCPSocketAL.h"
+//#include "transport.h"
+#include "stdio.h"
+#include "stdlib.h"
 
 module Node{
+	provides interface node<TCPSocketAL>;
 	uses interface Boot;
 	uses interface Timer<TMilli> as pingTimeoutTimer;
 	
@@ -69,15 +73,18 @@ implementation{
 	hashmapLSP ListOfLSP; 
 	RoutingTable Confirmed;
 	RoutingTable Tentative;
-	
 	//Project3
-	TCPSocketAL *mSocket;
-	
+	TCPSocketAL mSocket;
+	uint16_t tcpDestAddr;
+	uint8_t connectionAddr[5];
+	uint8_t connectCount;
 	bool isActive = TRUE;
+	char *clser;
+
 	
 	//Ping/PingReply Variables
 	pingList pings;
-	
+	uint8_t errorMsg;
 	error_t send(uint16_t src, uint16_t dest, pack *message);
 	void storeLSPintoList(LinkStateInfo *payload, pair srcAndseq);
 	void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t Protocol, uint16_t seq, uint8_t *payload, uint8_t length);
@@ -86,7 +93,7 @@ implementation{
 	event void Boot.booted(){
 		call AMControl.start();
 		hashmapInitLSP(&ListOfLSP);
-		
+		connectCount = 0;
 		dbg("genDebug", "Booted\n");
 	}
 	
@@ -230,7 +237,7 @@ implementation{
 			pack* myMsg=(pack*) payload;
 			//TOS_NODE_ID - is the current node. 
 			//James Added, each time a packet is send, increment the seq
-		
+			
 			dbg("mydebug", "Current Dest: %d SRCSEQID - src:%d  seq:%d \n", myMsg->dest, myMsg->src, myMsg->seq);
 			SRCSEQID.src =  myMsg->src;
 			SRCSEQID.seq =  myMsg->seq;
@@ -297,7 +304,8 @@ implementation{
 			if(TOS_NODE_ID==myMsg->dest){				
 				dbg("genDebug", "Packet from %d has arrived! Msg: %s\n", myMsg->src, myMsg->payload);
 				switch(myMsg->protocol){
-					
+					uint8_t srcPort;
+					uint8_t destPort;
 					uint8_t createMsg[PACKET_MAX_PAYLOAD_SIZE];
 					uint16_t dest;
 					case PROTOCOL_PING:
@@ -340,10 +348,10 @@ implementation{
 							dbg("Project1N","###########################\n");						
 						}
 						break;
-						
 					case PROTOCOL_CMD:
-							switch(getCMD((uint8_t *) &myMsg->payload, sizeof(myMsg->payload))){
+							switch(getCMD((uint8_t *) & myMsg->payload, sizeof(myMsg->payload))){
 								uint32_t temp=0;
+				
 								case CMD_PING:
 								    dbg("genDebug", "Ping packet received: %lu\n", temp);
 									memcpy(&createMsg, (myMsg->payload) + PING_CMD_LENGTH, sizeof(myMsg->payload) - PING_CMD_LENGTH);
@@ -361,27 +369,55 @@ implementation{
 								case CMD_ERROR:
 									break;
 								case CMD_TEST_CLIENT:
+										clser = myMsg->payload;
+										clser = strtok(clser," ");
+										clser = strtok(NULL, " ");
+										clser = strtok(NULL, " ");
+										srcPort = atoi(clser);
+										clser = strtok(NULL, " ");
+										destPort = atoi(clser);
+										clser = strtok(NULL, " ");
+										dest = atoi(clser);
+										
 										call TCPManager.init();
-										mSocket = call TCPManager.socket();
-										//Bind the socket, port, node ID
-										call ALSocket.bind(mSocket, 99, TOS_NODE_ID);
-										call ALSocket.connect(mSocket, 4, 29);
-										call ALClient.init(mSocket);
+										mSocket = *(call TCPManager.socket());
+										errorMsg = call ALSocket.bind(&mSocket, srcPort, TOS_NODE_ID);
+										dbg("project3", "Socket destPort %d destAddr %d SrcPort %d SrcAddr %d State %d \n", mSocket.destPort, mSocket.destAddr, mSocket.SrcPort, mSocket.SrcAddr, mSocket.state );
+										if(errorMsg == -1){
+											dbg("project3", "Problem with binding\n");
+											break;
+										}
+										
+										call ALSocket.connect(&mSocket, dest, destPort);
+										dbg("project3", "Socket destPort %d destAddr %d SrcPort %d SrcAddr %d State %d \n", mSocket.destPort, mSocket.destAddr, mSocket.SrcPort, mSocket.SrcAddr, mSocket.state );
+										
+										call ALClient.init(&mSocket);
 									break;
 								case CMD_TEST_SERVER:
+										clser = myMsg->payload;
+										clser = strtok(clser," ");
+										clser = strtok(NULL, " ");
+										clser = strtok(NULL, " ");
+										srcPort = atoi(clser);
 										call TCPManager.init();
-										mSocket = call TCPManager.socket();
-										call ALSocket.bind(mSocket, 29, TOS_NODE_ID);
-										call ALSocket.listen(mSocket, 5);
-										call ALServer.init(mSocket);
+										mSocket = *(call TCPManager.socket());
+										call ALSocket.bind(&mSocket, srcPort, TOS_NODE_ID);
+										dbg("project3", "Socket destPort %d destAddr %d SrcPort %d SrcAddr %d State %d \n", mSocket.destPort, mSocket.destAddr, mSocket.SrcPort, mSocket.SrcAddr, mSocket.state );
+										
+										call ALSocket.listen(&mSocket, 5);
+										dbg("project3", "Socket destPort %d destAddr %d SrcPort %d SrcAddr %d State %d \n", mSocket.destPort, mSocket.destAddr, mSocket.SrcPort, mSocket.SrcAddr, mSocket.state );
+										
+										call ALServer.init(&mSocket);
+										
 									break;
 								default:
 									break;
 							}
 						break;
 						case PROTOCOL_TCP: 
-							
-							call TCPManager.handlePacket(myMsg->payload);
+							dbg("project3","Handling Packet\n" );
+							//Store dest addr somehow for server
+							call TCPManager.handlePacket(&myMsg->payload);
 						break;
 					default:
 						break;
@@ -423,6 +459,24 @@ implementation{
 		}
 		dbg("genDebug", "Unknown Packet Type\n");
 		return msg;
+	}
+	void storeAddr(uint8_t dest){
+		connectionAddr[connectCount] = dest;
+	}
+	
+	//For connect
+	command void node.TCPPacket(void *transportPacket, TCPSocketAL *Sckt){
+		uint8_t Entry = 0;
+		StartDijkstraCalc();	
+		for(Entry=0; Entry < Confirmed.numVals; Entry++){
+			if(Sckt->destAddr == Confirmed.RTable[Entry].Dest){
+				break;
+			}
+		}
+		makePack(&sendPackage, TOS_NODE_ID, Sckt->destAddr, MAX_TTL, PROTOCOL_TCP, sequenceNum++, transportPacket, sizeof(transportPacket));
+		dbg("project3", "Sending from %d to %d\n", sendPackage.src, sendPackage.dest);
+		sendBufferPushBack(&packBuffer, sendPackage, sendPackage.src, Confirmed.RTable[Entry].NxtHop);
+		delaySendTask();
 	}
 
 	task void sendBufferTask(){
@@ -471,6 +525,8 @@ implementation{
 		dbg("genDebug", "FAILED!?");
 		return FAIL;
 	}	
+
+	
 	
 //Re wrapping, after un-wrapping
 	void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t protocol, uint16_t seq, uint8_t* payload, uint8_t length){
@@ -482,5 +538,7 @@ implementation{
 		Package->protocol = protocol;
 		memcpy(Package->payload, payload, length);
 	}
+
+
 
 }

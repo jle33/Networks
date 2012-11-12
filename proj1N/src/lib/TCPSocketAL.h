@@ -33,6 +33,8 @@ typedef struct TCPSocketAL{
 	uint16_t SrcAddr;//myself
 	uint8_t state;
 	uint8_t connections;
+	uint8_t SWS;
+	uint8_t RWS;
 	/*Insert Variables Here */
 }TCPSocketAL;
 

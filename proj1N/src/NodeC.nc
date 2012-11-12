@@ -72,4 +72,8 @@ implementation {
 	Node.sendDelay -> sendDelay;
 	Node.TCPManager -> TCPManager;
 	Node.ALSocket -> ALSocket;
+	TCPManager.node->Node;
+	ALSocket.TCPManager -> TCPManager;
+	TCPManager.TCPSocket -> ALSocket;
+	ALSocket.node -> Node;
 }

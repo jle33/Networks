@@ -7,73 +7,67 @@ module TCPSocketC{
 	provides{
 		interface TCPSocket<TCPSocketAL>;
 	}
+	uses interface TCPManager<TCPSocketAL, pack>;
+	uses interface node<TCPSocketAL>;
 }
 implementation{	
 	//Port 0 is reserved for something....to search for an available port.
-	port ports[TRANSPORT_MAX_PORT+1];
-	void initports(){
-		uint8_t i = 0;
-		for(i = 1; i < TRANSPORT_MAX_PORT+1; i++){
-			ports[i].isUsed = FALSE;
-		}
-	}
+	transport sendTCP;
+	uint16_t seqNum = 0;
 	
-	async command void TCPSocket.init(TCPSocketAL *input){
-		input->destPort = -1;
-		input->destAddr = -1;
-		input->SrcPort = -1;
-		input->SrcAddr = TOS_NODE_ID; //current socket at this host
+	async command void TCPSocket.init(TCPSocketAL *input){		
+		input->destPort = 0;
+		input->destAddr = 0;
+		input->SrcPort = 0;
+		input->SrcAddr = 0;
 		input->state = CLOSED;
-		
+		input->connections = 0;
+		input->RWS = 100;
+		input->SWS = 100;				
 	}
 	
 	async command uint8_t TCPSocket.bind(TCPSocketAL *input, uint8_t localPort, uint16_t address){
-		if((localPort > 255) || (ports[localPort].isUsed == TRUE)){
-			dbg("project3", "Attempted Bind at localPort %d not valid", localPort);
+		uint8_t errorMsg = call TCPManager.portCheck(localPort);
+		if(errorMsg == -1){
 			return -1;
-			}
-		if(localPort == 0){
-			uint8_t i = 1;
-			while(ports[i].isUsed){
-				i++;
-			}
-			input->SrcPort = i;
-			ports[i].isUsed = TRUE;
 		}
-		else{
-			input->SrcPort = localPort;
-			ports[localPort].isUsed == TRUE;
-		}
+		input->SrcPort = localPort;
 		input->SrcAddr = address;
-		//Maybe still missing stuff, I believe that if you can't bind, than drop all data
-		return TRUE;
+		return 0;
 	}
 	
 	//the passive open
 	//backlog is the amount of max connections;
 	async command uint8_t TCPSocket.listen(TCPSocketAL *input, uint8_t backlog){
-		//Wait for a syn
-		//Once recieved syn, send syn+ack
+		input->connections = backlog;
 		input->state = LISTEN;
-		//after that change state to ESTABLISHED
-		return -1;
+		call TCPManager.storeOntoActiveSocketsList(input);
+		
+		//dbg("project3", "state %d\n",input->state);
+		return 0;
 	}
 	
 	async command uint8_t TCPSocket.accept(TCPSocketAL *input, TCPSocketAL *output){
-		input->destPort = output->SrcPort;
-		input->destAddr = output->SrcAddr;
+		output->destPort = input->destPort;
+		output->destAddr = input->destAddr;
+		output->SrcPort = input->SrcPort;
+		output->SrcAddr = input->SrcAddr; 
 		//Somehow check if those two are correct?? so just a check
-		input->state = ESTABLISHED;
-		return -1;
-	}
+		output->state = ESTABLISHED;
+		
+		return 1;
+	}	
 
 	//The active open
 	async command uint8_t TCPSocket.connect(TCPSocketAL *input, uint16_t destAddr, uint8_t destPort){
-		//Am I suppose to send a SYN packet here???? how do I even do that...
-			//Should I just somehow link node.nc here and use its functions to send stuff?
+		input->destAddr = destAddr;
+		input->destPort = destPort;
+		dbg("project3", "Sending SYN to destAddr %d destPort %d \n", destAddr, destPort);
+		createTransport(&sendTCP, input->SrcPort, destPort, TRANSPORT_SYN, 0, seqNum, NULL, 0);
+		call node.TCPPacket(&sendTCP, input);
 		input->state = SYN_SENT;
-		//Do I call accept here, to connect them.
-		return -1;
+		call TCPManager.storeOntoActiveSocketsList(input);
+		return TRUE;
 	}
 
 	async command uint8_t TCPSocket.close(TCPSocketAL *input){
@@ -87,6 +81,7 @@ implementation{
 
 	async command uint8_t TCPSocket.release(TCPSocketAL *input){
 		//Somehow release all related data to that connection, purge buffer?
+		
 		input->state = SHUTDOWN;
 		return -1;
 	}
@@ -139,5 +134,6 @@ implementation{
 	}
 	
 	async command void TCPSocket.copy(TCPSocketAL *input, TCPSocketAL *output){
+		
 	}
 }
