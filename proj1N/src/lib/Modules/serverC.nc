@@ -11,6 +11,7 @@
 #include "TCPSocketAL.h"
 #include "serverWorkerList.h"
 #include "../packet.h"
+#include "dataStructures/addrPort.h"
 
 module serverC{
 	uses{
@@ -19,7 +20,7 @@ module serverC{
 		interface Timer<TMilli> as WorkerTimer;
 
 		interface Random;
-		interface TCPManager<TCPSocketAL,pack>;
+		interface TCPManager<TCPSocketAL,addrPort>;
 	}
 	provides{
 		interface server<TCPSocketAL>;
@@ -34,7 +35,6 @@ implementation{
 	command void server.init(TCPSocketAL *socket){
 		mServer.socket = socket;
 		mServer.numofWorkers=0;	
-			
 		call ServerTimer.startPeriodic(SERVER_TIMER_PERIOD + (uint16_t) ((call Random.rand16())%200));
 		call WorkerTimer.startPeriodic(WORKER_TIMER_PERIOD + (uint16_t) ((call Random.rand16())%200));
 	}
@@ -48,9 +48,7 @@ implementation{
 			//Attempt to Establish a Connection
 			if(call TCPSocket.accept(mServer.socket, &(connectedSock)) == TCP_ERRMSG_SUCCESS){
 				serverWorkerAL newWorker;
-				
-				dbg("serverAL", "serverAL - Connection Accepted.\n");
-								
+				dbg("serverAL", "serverAL - Connection Accepted.\n");				
 				//create a worker.
 				call serverWorker.init(&newWorker, &connectedSock);
 				newWorker.id= mServer.numofWorkers;
@@ -92,7 +90,7 @@ implementation{
 	}
 	
 	command void serverWorker.execute(serverWorkerAL *worker){
-		if(!call TCPSocket.isClosed( (worker->socket) ) ){
+		if(call TCPSocket.isClosed( (worker->socket) )  == FALSE){
 			uint16_t bufferIndex, length, count;
 			
 			bufferIndex = (worker->position) % SERVER_WORKER_BUFFER_SIZE + (worker->position/ SERVER_WORKER_BUFFER_SIZE) + 1;
@@ -119,7 +117,6 @@ implementation{
 						dbg("serverAL", "Buffer Index: %lu Position: %lu\n", i+bufferIndex, worker->position);
 						call TCPSocket.release( (worker->socket) );
 						serverWorkerListRemoveValue(&workers, *worker);
-						
 						return;
 					}
 				}

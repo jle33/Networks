@@ -32,9 +32,12 @@ typedef struct TCPSocketAL{
 	uint8_t SrcPort;//myself
 	uint16_t SrcAddr;//myself
 	uint8_t state;
-	uint8_t connections;
+	uint8_t pendCon; //PendingConnections
+	uint8_t maxCon; //Max number of supported Connections
+	uint8_t con;
 	uint8_t SWS;
 	uint8_t RWS;
+	uint16_t ID;
 	/*Insert Variables Here */
 }TCPSocketAL;
 

@@ -10,6 +10,7 @@
 #include "TCPSocketAL.h"
 #include "clientAL.h"
 #include "../packet.h"
+#include "dataStructures/addrPort.h"
 
 enum{
 	BYTES_TO_SEND = 100
@@ -21,7 +22,7 @@ module clientC{
 		
 		interface Timer<TMilli> as ClientTimer;
 		interface Random;
-		interface TCPManager<TCPSocketAL,pack>;
+		interface TCPManager<TCPSocketAL,addrPort>;
 	}
 	provides{
 		interface client<TCPSocketAL>;
@@ -47,6 +48,8 @@ implementation{
 			if(mClient.startTime == 0){ // First Iteration
 				mClient.startTime = call ClientTimer.getNow();
 				dbg("clientAL", "clientAL - Connection established at time: %lu\n Bytes to be send: %lu\n", mClient.startTime, mClient.amount);
+				//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d Connections: %d\n", mClient.socket->ID, mClient.socket->destPort, mClient.socket->destAddr, mClient.socket->SrcPort, mClient.socket->SrcAddr, mClient.socket->state, mClient.socket->pendCon);
+				
 			}
 			
 			if(mClient.amount == 0){
@@ -66,7 +69,7 @@ implementation{
 			if(bufferIndex == 0){ // Out of data, time to create more.
 				uint16_t i, offset;
 				
-				dbg("clientAL", "clientAL - Creating additional data.");
+				dbg("clientAL", "clientAL - Creating additional data.\n");
 				
 				offset = mClient.position/255 + 1; //Offset to remove any 0s from the data.
 				for(i=0; i< CLIENTAL_BUFFER_SIZE; i++){

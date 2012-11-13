@@ -3,7 +3,7 @@
 
 typedef struct port{
 	bool isUsed;
-	uint8_t scktID;
+	uint16_t scktID;
 }port;
 
 

@@ -21,7 +21,7 @@ for line in f:
    
 # Channels used for debuging
 #t.addChannel("genDebug", sys.stdout)
-t.addChannel("cmdDebug", sys.stdout)
+#t.addChannel("cmdDebug", sys.stdout)
 #t.addChannel("Project1F", sys.stdout)
 #t.addChannel("Project1N", sys.stdout)
 #t.addChannel("mydebug", sys.stdout)
@@ -32,7 +32,7 @@ t.addChannel("cmdDebug", sys.stdout)
 t.addChannel("clientAL", sys.stdout)
 t.addChannel("serverAL", sys.stdout)
 t.addChannel("project3", sys.stdout)
-
+#t.addChannel("transport", sys.stdout)
 noise = open("no_noise.txt", "r")
 
 numNodes = 6
@@ -105,7 +105,8 @@ runTime(200)
 #sendCMD("6 6 hello");
 #sendCMD("6 6 cmd ping 3 Hello");
 #sendCMD("1 3 hello")
-#sendCMD("4 4 cmd server 29")
+sendCMD("4 4 cmd server 29")
 sendCMD("2 2 cmd client 99 29 4")
+sendCMD("3 3 cmd client 99 29 4")
 
 
