@@ -101,9 +101,8 @@ implementation{
 		uint16_t sckID = ports[myMsg->destPort].scktID;
 		switch(myMsg->type){
 			case TRANSPORT_SYN:
-				dbg("project3", "SYN packet\n destPort %d  ports.scktID %d ports.isUsed %d\n", myMsg->destPort, ports[myMsg->destPort].scktID, ports[myMsg->destPort].isUsed);
-				dbg("project3", "sckID %d Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n",sckID ,avilableSockets[sckID].ID, avilableSockets[sckID].destPort, avilableSockets[sckID].destAddr, avilableSockets[sckID].SrcPort, avilableSockets[sckID].SrcAddr, avilableSockets[sckID].state );
-				
+			//	dbg("project3", "SYN packet\n destPort %d  ports.scktID %d ports.isUsed %d\n", myMsg->destPort, ports[myMsg->destPort].scktID, ports[myMsg->destPort].isUsed);
+			//	dbg("project3", "sckID %d Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n",sckID ,avilableSockets[sckID].ID, avilableSockets[sckID].destPort, avilableSockets[sckID].destAddr, avilableSockets[sckID].SrcPort, avilableSockets[sckID].SrcAddr, avilableSockets[sckID].state );
 				if(avilableSockets[ports[myMsg->destPort].scktID].state == LISTEN){
 					ListenID = sckID;
 					Pairs.addr = destAddr;
@@ -118,19 +117,20 @@ implementation{
 					createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_FIN, 0, 0, NULL, 0);
 					call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
 				}
-				//call accept
-				//send to something based on destPort and destAddr
+				
 			break;
 			case TRANSPORT_ACK:
 				dbg("project3", "ACK packet\n");
-				if(avilableSockets[sckID].state == CLOSED ){
+				if(avilableSockets[sckID].state == SYN_SENT ){
+					dbg("project3", "Once only\n");
 					avilableSockets[sckID].destPort = myMsg->srcPort;
 					avilableSockets[sckID].state = ESTABLISHED;
 					dbg("project3", "sckID %d Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n",sckID ,avilableSockets[sckID].ID, avilableSockets[sckID].destPort, avilableSockets[sckID].destAddr, avilableSockets[sckID].SrcPort, avilableSockets[sckID].SrcAddr, avilableSockets[sckID].state );
 				}
 				else if(avilableSockets[sckID].state == ESTABLISHED){
-					
-					
+					//Assume you sent data packets
+				}
+				else{
 				}
 				
 			break;
@@ -142,24 +142,23 @@ implementation{
 				}else if(avilableSockets[sckID].state == LISTEN){
 					
 				}else if(avilableSockets[sckID].state == ESTABLISHED){
-				
 					createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_FIN, 0, 0, NULL, 0);
 					call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
 					call TCPManager.freeSocket(&avilableSockets[sckID]);
 				}else{
-					
 					createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_FIN, 0, 0, NULL, 0);
 					call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
 					call TCPManager.freeSocket(&avilableSockets[sckID]);
 				}
 				
-
+			
 			break;
 			case TRANSPORT_DATA:
 				dbg("project3", "Data packet\n");
 				if(avilableSockets[sckID].state == ESTABLISHED){
 					//Do the stuff
-					
+					dbg("project3", "%d\n", *myMsg->payload);
+					dbg("project3", "Seq %d\n", myMsg->seq);
 				}
 				else{
 					avilableSockets[sckID].destAddr = destAddr;

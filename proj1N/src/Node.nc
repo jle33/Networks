@@ -94,7 +94,7 @@ implementation{
 		call AMControl.start();
 		hashmapInitLSP(&ListOfLSP);
 		connectCount = 0;
-		dbg("genDebug", "Booted\n");
+		//dbg("genDebug", "Booted\n");
 	}
 	
 	event void AMControl.startDone(error_t err){
@@ -125,7 +125,7 @@ implementation{
 	event void AMSend.sendDone(message_t* msg, error_t error){
 		//Clear Flag, we can send again.
 		if(&pkt == msg){
-			dbg("genDebug", "Packet Sent\n");
+			//dbg("genDebug", "Packet Sent\n");
 			busy = FALSE;
 			//post sendBufferTask();
 			delaySendTask();
@@ -302,7 +302,7 @@ implementation{
 				return msg;
 			}
 			if(TOS_NODE_ID==myMsg->dest){				
-				dbg("genDebug", "Packet from %d has arrived! Msg: %s\n", myMsg->src, myMsg->payload);
+				//dbg("genDebug", "Packet from %d has arrived! Msg: %s\n", myMsg->src, myMsg->payload);
 				switch(myMsg->protocol){
 					uint8_t srcPort;
 					uint8_t destPort;
@@ -326,7 +326,7 @@ implementation{
 						delaySendTask();
 						break;
 					case PROTOCOL_PINGREPLY:
-						dbg("genDebug", "Received a Ping Reply from %d!\n", myMsg->src);
+						//dbg("genDebug", "Received a Ping Reply from %d!\n", myMsg->src);
 						if((strcmp(myMsg->payload,NEIGHBORDISCOVERY) == 0) && (myMsg->TTL == 0)){//Apparently False is true for strcmp							
 							uint8_t key = hash(myMsg->src);
 							if(hashmapContains(&ListofNeighbors, (uint8_t) key)==FALSE){
@@ -353,7 +353,7 @@ implementation{
 								uint32_t temp=0;
 								TCPSocketAL *mSocket;
 								case CMD_PING:
-								    dbg("genDebug", "Ping packet received: %lu\n", temp);
+								   // dbg("genDebug", "Ping packet received: %lu\n", temp);
 									memcpy(&createMsg, (myMsg->payload) + PING_CMD_LENGTH, sizeof(myMsg->payload) - PING_CMD_LENGTH);
 									memcpy(&dest, (myMsg->payload)+ PING_CMD_LENGTH-2, sizeof(uint8_t));
 									makePack(&sendPackage, TOS_NODE_ID, (dest-48)&(0x00FF), MAX_TTL, PROTOCOL_PING, sequenceNum++, (uint8_t *)createMsg,
@@ -470,6 +470,7 @@ implementation{
 				break;
 			}
 		}
+		//dbg("project3", "seq %d\n", sequenceNum);
 		makePack(&sendPackage, TOS_NODE_ID, Sckt->destAddr, MAX_TTL, PROTOCOL_TCP, sequenceNum++, transportPacket, sizeof(transportPacket));
 		//dbg("project3", "Sending from %d to %d\n", sendPackage.src, sendPackage.dest);
 		sendBufferPushBack(&packBuffer, sendPackage, sendPackage.src, Confirmed.RTable[Entry].NxtHop);

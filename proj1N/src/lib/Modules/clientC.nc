@@ -65,7 +65,7 @@ implementation{
 			}
 			
 			bufferIndex = mClient.position % CLIENTAL_BUFFER_SIZE;
-			
+			dbg("project3", "bufferIndex: %d\n", bufferIndex);
 			if(bufferIndex == 0){ // Out of data, time to create more.
 				uint16_t i, offset;
 				
@@ -85,7 +85,7 @@ implementation{
 			}else{
 				len = mClient.amount;
 			}
-			
+			dbg("clientAL", "len  %d\n", len);
 			count = call TCPSocket.write((mClient.socket), mClient.buffer, bufferIndex, len);
 			
 			if(count == -1){

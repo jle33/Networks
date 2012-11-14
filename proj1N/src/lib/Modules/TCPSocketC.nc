@@ -108,15 +108,24 @@ implementation{
 	}
 
 	async command int16_t TCPSocket.read(TCPSocketAL *input, uint8_t *readBuffer, uint16_t pos, uint16_t len){
-		//This is where sliding window will occur
+		
+		
 		
 		return -1;
 	}
 
 	async command int16_t TCPSocket.write(TCPSocketAL *input, uint8_t *writeBuffer, uint16_t pos, uint16_t len){
-		//Sliding window stuff...
-	
-		return -1;
+		uint16_t count = 0;
+		uint8_t storage;
+		for(pos; pos < len; pos++){
+			//dbg("project3", "count %d\n",  (writeBuffer[pos]));
+			storage = writeBuffer[pos];
+			createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_DATA, 0, seqNum++, &storage, sizeof(storage));
+			call node.TCPPacket(&sendTCP, input);
+			count++;
+		}
+		//dbg("project3", "count %d\n", count);
+		return count;
 	}
 
 	async command bool TCPSocket.isListening(TCPSocketAL *input){
