@@ -13,6 +13,7 @@ module TCPManagerC{
 	uses interface node<TCPSocketAL>;
 	uses interface Timer<TMilli> as CloseTimer;
 	uses interface Timer<TMilli> as ShutDownTimer;
+	uses interface Timer<TMilli> as ConnectTimer;
 	uses interface Random;
 }
 implementation{
@@ -59,7 +60,7 @@ implementation{
 			ports[i].scktID = 255;
 		}
 	}
-	
+		
 	command void TCPManager.storeOntoActiveSocketsList(TCPSocketAL *input){
 	/*avilableSockets[input->SrcPort].destPort = input->destPort;
 		avilableSockets[input->SrcPort].destAddr = input->destAddr;
@@ -126,20 +127,23 @@ implementation{
 		switch(myMsg->type){
 			case TRANSPORT_SYN:
 			//	dbg("project3", "SYN packet\n destPort %d  ports.scktID %d ports.isUsed %d\n", myMsg->destPort, ports[myMsg->destPort].scktID, ports[myMsg->destPort].isUsed);
-			//	dbg("project3", "sckID %d Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n",sckID ,avilableSockets[sckID].ID, avilableSockets[sckID].destPort, avilableSockets[sckID].destAddr, avilableSockets[sckID].SrcPort, avilableSockets[sckID].SrcAddr, avilableSockets[sckID].state );
+			//dbg("project3", "sckID %d Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n",sckID ,avilableSockets[sckID].ID, avilableSockets[sckID].destPort, avilableSockets[sckID].destAddr, avilableSockets[sckID].SrcPort, avilableSockets[sckID].SrcAddr, avilableSockets[sckID].state );
 				if(avilableSockets[ports[myMsg->destPort].scktID].state == LISTEN){
 					ListenID = sckID;
 					Pairs.addr = destAddr;
 					Pairs.destPort = myMsg->srcPort;
-					aPListPushBack(&acceptBuffer, Pairs);
-					avilableSockets[sckID].pendCon++;
-					//dbg("project3", "sckID %d Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n",sckID ,avilableSockets[sckID].ID, avilableSockets[sckID].destPort, avilableSockets[sckID].destAddr, avilableSockets[sckID].SrcPort, avilableSockets[sckID].SrcAddr, avilableSockets[sckID].state );
+					if(aPListContains(&acceptBuffer, Pairs.addr , Pairs.destPort) == FALSE){
+						aPListPushBack(&acceptBuffer, Pairs);
+						avilableSockets[sckID].pendCon++;
+					}
+					dbg("project3", "Amount of connections pending: %d\t Amount of connections: %d\n", avilableSockets[sckID].pendCon,avilableSockets[sckID].con);
+					dbg("project3", "sckID %d Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n",sckID ,avilableSockets[sckID].ID, avilableSockets[sckID].destPort, avilableSockets[sckID].destAddr, avilableSockets[sckID].SrcPort, avilableSockets[sckID].SrcAddr, avilableSockets[sckID].state );
 				}
 				else{
-					dbg("project3", "FIN PACKET SENDING\n");
-				//	avilableSockets[ports[myMsg->destPort].scktID].destAddr = destAddr;
-				//	createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_FIN, 0, 0, NULL, 0);
-				//	call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
+					dbg("project3", "SERVER IS CLOSED, PLEASE TRY AGAIN\n");
+					//avilableSockets[ports[myMsg->destPort].scktID].destAddr = destAddr;
+					//createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_FIN, 0, 0, NULL, 0);
+					//call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
 				}
 				
 			break;
@@ -152,6 +156,8 @@ implementation{
 				}
 				else if(avilableSockets[sckID].state == ESTABLISHED){
 					//Assume you sent data packets
+					//ExpectedseqNum = 1;
+					dbg("project3", "sckID %d Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d CWIN: %d\n",sckID ,avilableSockets[sckID].ID, avilableSockets[sckID].destPort, avilableSockets[sckID].destAddr, avilableSockets[sckID].SrcPort, avilableSockets[sckID].SrcAddr, avilableSockets[sckID].state,avilableSockets[sckID].CWIN);
 					
 				}
 				else{
@@ -181,24 +187,25 @@ implementation{
 
 			break;
 			case TRANSPORT_DATA:
-				//dbg("project3", "Data packet\n");
+				dbg("project3", "Data packet Seq %d\n", myMsg->seq);
 				if(avilableSockets[sckID].state == ESTABLISHED){
 					uint16_t Seq = myMsg->seq;				
 					if(ExpectedseqNum == Seq){
-						createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_ACK, 0, ExpectedseqNum, NULL, 0);
+						call TCPSocket.StoreData(myMsg->payload[0], myMsg->seq);
+						createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_ACK, 10, ExpectedseqNum++, NULL, 0);
 						call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
-						ExpectedseqNum = Seq;
+						//ExpectedseqNum = Seq+1;
 					}
 					else{
-						createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_ACK, 0, Seq, NULL, 0);
+						createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_ACK, 10, ExpectedseqNum, NULL, 0);
 						call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
 					}
 					dbg("project3", "Data: %d\n", myMsg->payload[0]);
-					call TCPSocket.StoreData(myMsg->payload[0]);
+				//	call TCPSocket.StoreData(myMsg->payload[0]);
 					closeCount = 0;
 				}
 				else if(avilableSockets[sckID].state == SHUTDOWN){
-					call TCPSocket.StoreData(myMsg->payload[0]);
+					//call TCPSocket.StoreData(myMsg->payload[0]);
 					closeCount = 0;
 				}
 				else{
@@ -234,15 +241,16 @@ implementation{
 		}
 
 
+	
+	
 	event void ShutDownTimer.fired(){
-		dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d Connections %d\n", avilableSockets[CloseMe[0].scktID].ID, avilableSockets[CloseMe[0].scktID].destPort, avilableSockets[CloseMe[0].scktID].destAddr, avilableSockets[CloseMe[0].scktID].SrcPort, avilableSockets[CloseMe[0].scktID].SrcAddr, avilableSockets[CloseMe[0].scktID].state, avilableSockets[CloseMe[0].scktID].con );	
-		dbg("project3", "HERE I AM\n");
+		//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d Connections %d\n", avilableSockets[CloseMe[0].scktID].ID, avilableSockets[CloseMe[0].scktID].destPort, avilableSockets[CloseMe[0].scktID].destAddr, avilableSockets[CloseMe[0].scktID].SrcPort, avilableSockets[CloseMe[0].scktID].SrcAddr, avilableSockets[CloseMe[0].scktID].state, avilableSockets[CloseMe[0].scktID].con );	
+		//dbg("project3", "HERE I AM\n");
 		if(closeCount == 0){
 			closeCount = 1;	
 		}
 		else{
-			
-			//call TCPManager.freeSocket(&avilableSockets[CloseMe[0].scktID]);
+			call TCPManager.freeSocket(&avilableSockets[CloseMe[0].scktID]);
 			call ShutDownTimer.stop();
 		}
 		// TODO Auto-generated method stub
@@ -250,6 +258,10 @@ implementation{
 
 	event void CloseTimer.fired(){
 	
+		// TODO Auto-generated method stub
+	}
+
+	event void ConnectTimer.fired(){
 		// TODO Auto-generated method stub
 	}
 }

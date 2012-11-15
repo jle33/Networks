@@ -79,13 +79,13 @@ uint8_t aPListSize(aPlist* cur){	return cur->numValues;}
 void aPListClear(aPlist* cur){	cur->numValues = 0;}
 
 DataMe aPListGet(aPlist* cur, nx_uint8_t i){	return cur->values[i];}
-/*
-bool aPListContains(aPlist* list, uint8_t iSrc, uint8_t iSeq){
+
+bool aPListContains(aPlist* list, uint8_t iPort, uint8_t iAddr){
 	uint8_t i=0;
 	for(i; i<list->numValues; i++){
-		if(iSeq == list->values[i].seq && iSrc == list->values[i].src) return TRUE;
+		if(iPort == list->values[i].destPort && iAddr == list->values[i].addr) return TRUE;
 	}
 	return FALSE;
-}*/
+}
 
 #endif /* ACCEPTBUFFER_H */

@@ -1,6 +1,10 @@
 #include "TCPSocketAL.h"
 #include "transport.h"
 #include "dataStructures/addrPort.h"
+#include "dataStructures/SocketBuffhashmap.h"
+#include "serverAL.h"
+#include "dataStructures/Bufferiterator.h"
+#include "dataStructures/hashmap.h"
 
 module TCPSocketC{
 	provides{
@@ -8,7 +12,10 @@ module TCPSocketC{
 	}
 	uses interface TCPManager<TCPSocketAL, addrPort>;
 	uses interface node<TCPSocketAL>;
-
+	uses interface Timer<TMilli> as ClientConnectTimer;
+	uses interface Timer<TMilli> as ReTransmitTimer;
+	uses interface Random;
+	
 }
 implementation{	
 	transport sendTCP;
@@ -17,10 +24,16 @@ implementation{
 	addrPort Pair;
 	uint8_t Buffer[128];//Socket buffer
 	uint8_t bufCount = 0;
+	TCPSocketAL *mySoc;
+	uint8_t conAttempt = 0;
+	int bufpos = 0;
+	transmap srBuffer; //send or receive buffer
+	transiterator resend;
+	hashmap rBuffer;
+	uint8_t keyIn = 0;
 	
-	
-	
-	async command void TCPSocket.StoreData(uint8_t data){
+	async command void TCPSocket.StoreData(uint8_t data, uint8_t seq){
+		hashmapInsert(&rBuffer, seq , data);
 		Buffer[bufCount] = data;
 		bufCount++;
 	}
@@ -36,7 +49,13 @@ implementation{
 		input->con = 0;
 		input->RWS = 5;
 		input->SWS = 5;	
-		input->ID = -1;			
+		input->ADWIN = SERVER_WORKER_BUFFER_SIZE;
+		input->CWIN = 0;
+		input->ID = -1;	
+		//Might be a bug if this function keeps running, unless it creates multiple instances of this, than it's perfect, else call from TCPManager,
+		//Also figure out for multiple connections
+		transmapInit(&srBuffer);	
+		hashmapInit(&rBuffer);
 	}
 	
 	async command uint8_t TCPSocket.bind(TCPSocketAL *input, uint8_t localPort, uint16_t address){
@@ -64,7 +83,7 @@ implementation{
 			return -1;
 		}
 		
-		if((input->pendCon > 0) && !(input->pendCon > input->maxCon)){
+		if((input->pendCon > 0) /*&& !(input->pendCon > input->maxCon)*/){
 			//dbg("serverAL", "Creating new Socket -  Accepting connection\n");
 			output = call TCPManager.socket();
 			output->SrcAddr = input->SrcAddr; 
@@ -86,7 +105,7 @@ implementation{
 			return -1;
 		}
 		//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d Connections: %d\n", input->ID, input->destPort, input->destAddr, input->SrcPort, input->SrcAddr, input->state, input->pendCon);
-		dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n", output->ID, output->destPort, output->destAddr, output->SrcPort, output->SrcAddr, output->state);
+		//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n", output->ID, output->destPort, output->destAddr, output->SrcPort, output->SrcAddr, output->state);
 		//Somehow check if those two are correct?? so just a check
 		return 1;
 	}	
@@ -99,6 +118,8 @@ implementation{
 		createTransport(&sendTCP, input->SrcPort, destPort, TRANSPORT_SYN, 0, 0, NULL, 0);
 		call node.TCPPacket(&sendTCP, input);
 		input->state = SYN_SENT;
+		mySoc = input;
+		call ClientConnectTimer.startPeriodic(1733 + (uint16_t) ((call Random.rand16())%200));
 		return TRUE;
 	}
 
@@ -123,17 +144,17 @@ implementation{
 		if(Buffer[0] == 0){
 			return count;
 		}
-		dbg("project3", "pos %d \t len %d\n", pos, len);
+		//dbg("project3", "pos %d \t len %d\n", pos, len);
 		for(pos; pos < (len+pos); pos++){
 			if(Buffer[pos] == 0){
 				return count;
 			}
-			readBuffer[pos] = Buffer[pos];
+			readBuffer[pos] = Buffer[bufpos];
 			dbg("project3", "readBuffer %d\n", readBuffer[pos]);
-			count++;
-			
+			bufpos++;
+			count++;			
 		}
-		dbg("project3", "count: %d\n", count);
+
 		return count;
 	}
 
@@ -142,20 +163,21 @@ implementation{
 		uint8_t storecount = 0;
 		//uint8_t storage[13];
 		uint8_t storage;
-		int i = 0;
-		for(pos; pos < len; pos++){
+		uint8_t allowedPacks = 0;
+				
+		dbg("project3", "pos: %d    len: %d\n",pos,len);
+		dbg("project3", "ADWIN %d\n", input->ADWIN);
+		for(pos; pos < (len+pos); pos++){
+			if(allowedPacks < input->ADWIN && allowedPacks < len){
 		//while(pos < len){
 			//dbg("project3", "count %d\n",  (writeBuffer[pos]));
 			//storecount = 0;
 			//storage[0] = writeBuffer[pos];
 			storage = writeBuffer[pos];
-			Buffer[i] = storage;
-			dbg("project3", "Buffer[%d] = %d\n", i, Buffer[i]);
-			i++;
 			//dbg("project3", "storage[%d] = %d\n", pos, writeBuffer[pos]);
-		/*	while(storecount < 13){
+			/*while(storecount < 13){
 				storage[storecount] = writeBuffer[pos];
-				//dbg("project3", "pos %d\tstorage[%d] = %d\n",pos, storecount, storage[storecount]);
+				dbg("project3", "pos %d\tstorage[%d] = %d\n",pos, storecount, storage[storecount]);
 				pos++;
 				storecount++;
 				count++;
@@ -163,12 +185,20 @@ implementation{
 					break;
 				}
 			}*/
-			call TCPSocket.StoreData(storage);
+			//call TCPSocket.StoreData(storage);
 			createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_DATA, 0, seqNum++, &storage, sizeof(storage));
 			call node.TCPPacket(&sendTCP, input);
+			
+			transmapInsert(&srBuffer, transhash3(seqNum, 1), sendTCP);
+			call ReTransmitTimer.startPeriodic(1053 + (uint16_t) ((call Random.rand16())%200));
 			count++;
+			allowedPacks++;
+			}
+			else{
+				dbg("project3", "count: %d \t allowedPacks: %d\n", count, allowedPacks);
+				return count;
+			}
 		}
-		//dbg("project3", "count %d\n", count);
 		return count;
 	}
 
@@ -211,5 +241,38 @@ implementation{
 			*output = *input;	
 			
 			
+	}
+
+	event void ClientConnectTimer.fired(){
+		if(mySoc->state == ESTABLISHED){
+			call ClientConnectTimer.stop();
+		}
+		else if(conAttempt < 5){
+			conAttempt++;
+			createTransport(&sendTCP, mySoc->SrcPort, mySoc->destPort, TRANSPORT_SYN, 0, 0, NULL, 0);
+			call node.TCPPacket(&sendTCP, mySoc);	
+		}
+		else{
+			dbg("project3", "CLIENT CLOSING\n");
+			mySoc->state = CLOSED;
+			call ClientConnectTimer.stop();
+		}
+				
+	}
+
+	event void ReTransmitTimer.fired(){
+		if(transmapIsEmpty(&srBuffer) == TRUE){
+			call ReTransmitTimer.stop();
+		}
+		else{
+			transport tempSendTCP;
+			transiteratorInit(&resend, &srBuffer);
+			while(transiteratorHasNext(&resend) == TRUE){
+					tempSendTCP = transiteratorNext(&resend);
+					call node.TCPPacket(&tempSendTCP, mySoc);
+					dbg("project3", "Re-Transmit Packts\n");
+			}	
+		}
+		
 	}
 }

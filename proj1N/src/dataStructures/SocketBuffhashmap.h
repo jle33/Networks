@@ -1,35 +1,37 @@
 //Author: UCM ANDES Lab
 //Date: 2/16/2012
 //Description: A simple hashtable. Change the HASHMAP_TYPE to change the type being stored.
-#ifndef HASHMAP_H
-#define HASHMAP_H
+//Modified for use as a BUFFER 11/15/2012
+#ifndef SOCKETBUFFHASHMAP_H
+#define SOCKETBUFFHASHMAP_H
+#include "transport.h"
 	
-typedef uint8_t hashType;
+typedef transport TransType;
 
 enum{
-	HASH_MAX_SIZE = 20
+	TRANS_MAX_SIZE = 15
 };
 
-typedef struct hashmapEntry{
+typedef struct TransEntry{
 	uint16_t key;
-	hashType value;
-}hashmapEntry;
+	TransType value;
+}TransEntry;
 
-typedef struct hashmap{
-	hashmapEntry map[HASH_MAX_SIZE];
-	uint8_t keys[HASH_MAX_SIZE];
+typedef struct transmap{
+	TransEntry map[TRANS_MAX_SIZE];
+	uint8_t keys[TRANS_MAX_SIZE];
 	uint8_t numofVals;
-}hashmap;
+}transmap;
 
 /*
- * Hash, Hash2
+ * trans, Hash2
  * @param int k = key
  * @return int - uses a hashing function to create a position.
  */
-uint16_t hash(uint16_t k){
+uint16_t transhash(uint16_t k){
 	return k%13;
 }
-uint16_t hash2(uint16_t k){
+uint16_t transhash2(uint16_t k){
 	return 1+k%11;
 }
 
@@ -39,23 +41,23 @@ uint16_t hash2(uint16_t k){
  * 			uint16_t i = number of iterations.
  * @return 	uint16_t a function that return as position based on hash and hash2.
  */
-uint16_t hash3(uint16_t k, uint16_t i){
- 	return (hash(k)+ i*hash2(k))%HASH_MAX_SIZE;
+uint16_t transhash3(uint16_t k, uint16_t i){
+ 	return (transhash(k)+ i*transhash2(k))%TRANS_MAX_SIZE;
  }
 
 /*
  * hashmapInit - initialize by setting all keys to 0 and the number of values to 0.
  * @param	hashmap *input = the value to be initialized
  */
-void hashmapInit(hashmap *input){
+void transmapInit(transmap *input){
 	uint16_t i;
-	for(i=0; i<HASH_MAX_SIZE; i++){
+	for(i=0; i<TRANS_MAX_SIZE; i++){
 		input->map[i].key=0; 		
 	}
 	input->numofVals=0;
 }
 
-bool hashmapIsEmpty(hashmap *input){
+bool transmapIsEmpty(transmap *input){
 	if(input->numofVals==0)return TRUE;
 	return FALSE;
 }
@@ -65,13 +67,13 @@ bool hashmapIsEmpty(hashmap *input){
  * @param	hashmap *input = the value to be initialized
  * 			uint8_t key = location key
  */
-hashType hashmapGet(hashmap *input, uint8_t key){
+TransType transmapGet(transmap *input, uint8_t key){
 	uint16_t i=0;	uint16_t j=0;
 	do{
-		j=hash3(key, i);
-		if(input->map[j].key == key){ 	return input->map[j].value;}
+		j=transhash3(key, i);
+		if(input->map[j].key == key){	return input->map[j].value;}
 		i++;
-	}while(i<HASH_MAX_SIZE);	
+	}while(i<TRANS_MAX_SIZE);	
 	return input->map[input->keys[0]].value;
 }
 
@@ -80,14 +82,14 @@ hashType hashmapGet(hashmap *input, uint8_t key){
  * @param	hashmap *input = the value to be initialized
  * 			uint8_t key = location key
  */
-bool hashmapContains(hashmap *input, uint8_t key){
+bool transmapContains(transmap *input, uint8_t key){
 	uint16_t i=0;	uint16_t j=0;
 	dbg("hashmap", "Checking to see if values exist\n");
 	do{
-		j=hash3(key, i);
+		j=transhash3(key, i);
 		if(input->map[j].key == key){	return TRUE;}
 		i++;
-	}while(i<HASH_MAX_SIZE);	
+	}while(i<TRANS_MAX_SIZE);	
 	return FALSE;
 }
 
@@ -96,13 +98,13 @@ bool hashmapContains(hashmap *input, uint8_t key){
  * hashmapInsert - insert in a free position based on the value. If it exist already, overwrite the value.
  * @param	hashmap *input = the value to be initialized
  * 			uint8_t key = location key
- * 			hashType value = the value to be stored
+ * 			TransType value = the value to be stored
  */
-void hashmapInsert(hashmap *input, uint8_t key, hashType value){
+void transmapInsert(transmap *input, uint8_t key, TransType value){
 	uint16_t i=0;	uint16_t j=0;
-	dbg("hashmap", "Attempting to place Entry: %hhu\n", key);
+	dbg("transmap", "Attempting to place Entry: %hhu\n", key);
 	do{
-		j=hash3(key, i);
+		j=transhash3(key, i);
 		if(input->map[j].key==0 || input->map[j].key==key){
 			if(input->map[j].key==0){
 				input->keys[input->numofVals]=key;
@@ -110,11 +112,11 @@ void hashmapInsert(hashmap *input, uint8_t key, hashType value){
 			}
 			input->map[j].value=value;
 			input->map[j].key = key;
-			dbg("hashmap","------------------Entry: %hhu was placed in %hhu\n", key, j);
+			dbg("transmap","------------------Entry: %hhu was placed in %hhu\n", key, j);
 			return;
 		}
 		i++;
-	}while(i<HASH_MAX_SIZE);
+	}while(i<TRANS_MAX_SIZE);
 	
 }
 
@@ -123,13 +125,13 @@ void hashmapInsert(hashmap *input, uint8_t key, hashType value){
  * @param	hashmap *input = the value to be initialized
  * 			uint8_t key = location key
  */
-void hashmapRemove(hashmap *input, uint8_t key){
+void transmapRemove(transmap *input, uint8_t key){
 	uint16_t i=0;	uint16_t j=0;
 	do{
-		j=hash3(key, i);
+		j=transhash3(key, i);
 		if(input->map[j].key == key){	input->map[j].key=0; return;}
 		i++;
-	}while(i<HASH_MAX_SIZE);
+	}while(i<TRANS_MAX_SIZE);
 	
 	for(i=0; i<input->numofVals; i++){
 		if(input->keys[i]==key){
@@ -142,4 +144,4 @@ void hashmapRemove(hashmap *input, uint8_t key){
 	}
 }
 
-#endif /* HASHMAP_H */
+#endif /* SOCKETBUFFHASHMAP_H */

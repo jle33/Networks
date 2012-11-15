@@ -69,7 +69,7 @@ hashType hashmapGet(hashmap *input, uint8_t key){
 	uint16_t i=0;	uint16_t j=0;
 	do{
 		j=hash3(key, i);
-		if(input->map[j].key == key){ 	return input->map[j].value;}
+		if(input->map[j].key == key){	return input->map[j].value;}
 		i++;
 	}while(i<HASH_MAX_SIZE);	
 	return input->map[input->keys[0]].value;

@@ -106,10 +106,8 @@ runTime(200)
 #sendCMD("6 6 hello");
 #sendCMD("6 6 cmd ping 3 Hello");
 #sendCMD("1 3 hello")
-
 sendCMD("4 4 cmd server 29")
 sendCMD("2 2 cmd client 99 29 4")
-
 runTime(200)
 
 #sendCMD("3 3 cmd client 99 29 4")

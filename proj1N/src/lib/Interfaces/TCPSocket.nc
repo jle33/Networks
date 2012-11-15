@@ -1,5 +1,5 @@
 interface TCPSocket<val_t>{
-	async command void StoreData(uint8_t data);
+	async command void StoreData(uint8_t data, uint8_t seq);
 	
 	async command void init(val_t *input);
 

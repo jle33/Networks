@@ -38,6 +38,9 @@ implementation {
 	
 	components new TimerMilliC() as TCPClosingTimer;
 	components new TimerMilliC() as TCPShutdownTimer;
+	components new TimerMilliC() as ConnectTimer;
+	components new TimerMilliC() as ClientConnectTimer;
+	components new TimerMilliC() as ReTransmit;
 	
 	components clientC as ALClient;
 	components new TimerMilliC() as ClientTimer;
@@ -58,6 +61,7 @@ implementation {
 	ALClient.TCPSocket -> ALSocket;
 	ALClient.ClientTimer -> ClientTimer;
 	ALClient.TCPManager -> TCPManager;
+	
 	
 	//Timers
 	Node.pingTimeoutTimer->pingTimeoutTimer;
@@ -81,7 +85,12 @@ implementation {
 	TCPManager.TCPSocket -> ALSocket;
 	ALSocket.node -> Node;
 	
+	
 	TCPManager.CloseTimer -> TCPClosingTimer;
 	TCPManager.ShutDownTimer -> TCPShutdownTimer;
 	TCPManager.Random -> Random;
+	TCPManager.ConnectTimer ->ConnectTimer;
+	ALSocket.Random -> Random;
+	ALSocket.ClientConnectTimer -> ClientConnectTimer;
+	ALSocket.ReTransmitTimer -> ReTransmit;
 }
