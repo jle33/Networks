@@ -25,7 +25,7 @@
 #include "dataStructures/hashmapLSP.h"
 #include "dataStructures/Dijkstra.h"
 #include "TCPSocketAL.h"
-//#include "transport.h"
+#include "transport.h"
 #include "stdio.h"
 #include "stdlib.h"
 #include "dataStructures/addrPort.h"
@@ -464,6 +464,8 @@ implementation{
 	//For connect
 	command void node.TCPPacket(void *transportPacket, TCPSocketAL *Sckt){
 		uint8_t Entry = 0;
+		uint8_t storecount = 0;
+		//transport* sup = (transport*)transportPacket;
 		StartDijkstraCalc();	
 		for(Entry=0; Entry < Confirmed.numVals; Entry++){
 			if(Sckt->destAddr == Confirmed.RTable[Entry].Dest){
@@ -472,6 +474,10 @@ implementation{
 		}
 		//dbg("project3", "seq %d\n", sequenceNum);
 		makePack(&sendPackage, TOS_NODE_ID, Sckt->destAddr, MAX_TTL, PROTOCOL_TCP, sequenceNum++, transportPacket, sizeof(transportPacket));
+		
+		//	for(storecount = 0; storecount < sizeof(sup->payload); storecount++){
+		//		dbg("project3", "%d Sending TCPPacket %d\n", sizeof(sup->payload) ,	sup->payload[storecount]);
+		//	}
 		//dbg("project3", "Sending from %d to %d\n", sendPackage.src, sendPackage.dest);
 		sendBufferPushBack(&packBuffer, sendPackage, sendPackage.src, Confirmed.RTable[Entry].NxtHop);
 		delaySendTask();

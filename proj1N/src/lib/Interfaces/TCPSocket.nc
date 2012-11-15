@@ -1,4 +1,6 @@
 interface TCPSocket<val_t>{
+	async command void StoreData(uint8_t data);
+	
 	async command void init(val_t *input);
 
 	async command uint8_t bind(val_t *input, uint8_t localPort, uint16_t address);
@@ -25,4 +27,5 @@ interface TCPSocket<val_t>{
 	async command bool isClosing(val_t *input);
 	
 	async command void copy(val_t *input, val_t *output);
+	
 }

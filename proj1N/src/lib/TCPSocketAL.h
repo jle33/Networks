@@ -37,6 +37,7 @@ typedef struct TCPSocketAL{
 	uint8_t con;
 	uint8_t SWS;
 	uint8_t RWS;
+	
 	uint16_t ID;
 	/*Insert Variables Here */
 }TCPSocketAL;

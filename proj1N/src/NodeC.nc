@@ -36,8 +36,12 @@ implementation {
 	components TCPManagerC as TCPManager;
 	components TCPSocketC as ALSocket;
 	
+	components new TimerMilliC() as TCPClosingTimer;
+	components new TimerMilliC() as TCPShutdownTimer;
+	
 	components clientC as ALClient;
 	components new TimerMilliC() as ClientTimer;
+
 
 	//Will finish Later
 	Node.ALServer -> ALServer;
@@ -76,4 +80,8 @@ implementation {
 	ALSocket.TCPManager -> TCPManager;
 	TCPManager.TCPSocket -> ALSocket;
 	ALSocket.node -> Node;
+	
+	TCPManager.CloseTimer -> TCPClosingTimer;
+	TCPManager.ShutDownTimer -> TCPShutdownTimer;
+	TCPManager.Random -> Random;
 }
