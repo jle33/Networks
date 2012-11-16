@@ -40,10 +40,15 @@ typedef struct TCPSocketAL{
 	uint16_t ADWIN;
 	uint16_t CWIN;
 	uint16_t ID;
-	uint8_t Buffdata[20];//Just because I can;
+	uint8_t Buffdata[128];//Just because I can;
+	
+	uint8_t LastByteRead;
 	uint8_t LastbyteRecv;
 	uint8_t NextByteExpected;
 	uint8_t ExpectedSeqNum;
+	
+	uint8_t LastSeqSent;
+	uint8_t LastByteAcked;
 	/*Insert Variables Here */
 }TCPSocketAL;
 

@@ -2,6 +2,10 @@ interface TCPSocket<val_t>{
 	async command void StoreData(uint8_t data, uint8_t seq);
 	command void IntBuff();
 	
+	async command void checkSendBuff(uint8_t seqCheck);
+	
+	async command void emptySendBuffer();
+	
 	async command void init(val_t *input);
 
 	async command uint8_t bind(val_t *input, uint8_t localPort, uint16_t address);

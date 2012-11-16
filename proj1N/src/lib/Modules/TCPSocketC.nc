@@ -5,6 +5,8 @@
 #include "serverAL.h"
 #include "dataStructures/Bufferiterator.h"
 #include "dataStructures/hashmap.h"
+#include "listBuffer.h"
+#include "sendBuffer.h"
 
 module TCPSocketC{
 	provides{
@@ -27,20 +29,23 @@ implementation{
 	TCPSocketAL *mySoc;
 	uint8_t conAttempt = 0;
 	int bufpos = 0;
-	transmap srBuffer; //sender buffer
+	//transmap srBuffer; //sender buffer
 	transiterator resend;
-	hashmap rBuffer;
+	//hashmap rBuffer;
 	uint8_t keyIn = 0;
+	Bufflist sendBuffer;
+	sendBuff value;
 	
 	command void TCPSocket.IntBuff(){
-		transmapInit(&srBuffer);	
-		hashmapInit(&rBuffer);
+		//transmapInit(&srBuffer);	
+		//hashmapInit(&rBuffer);
+		BuffListInit(&sendBuffer);
 	}
 	
 	async command void TCPSocket.StoreData(uint8_t data, uint8_t seq){
-		hashmapInsert(&rBuffer, seq , data);
-		Buffer[bufCount] = data;
-		bufCount++;
+		//hashmapInsert(&rBuffer, seq , data);
+		//Buffer[bufCount] = data;
+		//bufCount++;
 	}
 	
 	async command void TCPSocket.init(TCPSocketAL *input){		
@@ -52,14 +57,22 @@ implementation{
 		input->maxCon = 0;
 		input->pendCon = 0;
 		input->con = 0;
-		input->RWS = 20;
-		input->SWS = 20;	
-		input->LastbyteRecv = 0;
+		input->ID = -1;	
+		
+		input->RWS = 128;
+		input->SWS = 100;	
+	
 		input->ADWIN = 20;
 		input->CWIN = 0;
-		input->ID = -1;	
+		
+		input->LastByteRead = 0;
+		input->LastbyteRecv = 0;
 		input->NextByteExpected = 0;
 		input->ExpectedSeqNum = 0;
+		
+		
+		input->LastSeqSent = 0;
+		input->LastByteAcked;
 		
 		//Might be a bug if this function keeps running, unless it creates multiple instances of this, than it's perfect, else call from TCPManager,
 		//Also figure out for multiple connections
@@ -151,35 +164,62 @@ implementation{
 	
 	async command int16_t TCPSocket.read(TCPSocketAL *input, uint8_t *readBuffer, uint16_t pos, uint16_t len){
 		uint16_t NextByteRead = 0; //NextNextByteRead
+		//dbg("project3", "LastbyteRecv  %d \t NextByteRead   %d\n", input->LastbyteRecv, NextByteRead);
+		if(call TCPSocket.isConnected(input) == FALSE){
+			return NextByteRead;
+		}
 		if(input->LastbyteRecv == 0){
 			return NextByteRead;
 		}
 		//dbg("project3", "LastbyteRecv  %d \t NextByteRead   %d\n", input->LastbyteRecv, NextByteRead);
 		for(pos; pos < input->LastbyteRecv; pos++){
-				readBuffer[pos] = input->Buffdata[NextByteRead];
+				readBuffer[pos] = input->Buffdata[input->LastByteRead];
+				input->LastByteRead++;
 				dbg("data", "Data Being Read: %d\n", readBuffer[pos]);
 				NextByteRead++;			
 		}
-		//input->LastbyteRecv = 0;
 		return NextByteRead;
 	}
+	async command void TCPSocket.checkSendBuff(uint8_t seqAck){
+		uint8_t i = 0;
+		if(BuffListContains(&sendBuffer, seqAck) == TRUE){
+			if(seqAck == 0){
+				dbg("project3", "Poping Single\n");
+				Spop_front(&sendBuffer);
+			}
+			else{
+				for(i =0; i < (seqAck%128); i++){
+						Spop_front(&sendBuffer);
+				}
+			}
+		}
 
+		
+	}
+	
+	async command void TCPSocket.emptySendBuffer(){
+		BuffListClear(&sendBuffer);
+	}
 	async command int16_t TCPSocket.write(TCPSocketAL *input, uint8_t *writeBuffer, uint16_t pos, uint16_t len){
-		uint16_t count = 0;
-		uint8_t storecount = 0;
 		uint8_t storage;
 		uint8_t allowedPacks = 0;
+		uint8_t CurSeq = 0;
 		//dbg("project3", "pos: %d    len: %d\n",pos,len);
 		//dbg("project3", "ADWIN %d\n", input->ADWIN);
 		for(pos; pos < (len+pos); pos++){
 			if((allowedPacks < input->ADWIN) && (allowedPacks < len)){
 			storage = writeBuffer[pos];
-			dbg("data", "Data Being Sent: %d\n", storage);
-			createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_DATA, 0, seqNum++, &storage, sizeof(storage));
+			//dbg("data", "Data Being Sent: %d\n", storage);
+			createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_DATA, 0, seqNum, &storage, sizeof(storage));
 			//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrcAddr: %d State: %d Connections: %d\n", input->ID, input->destPort, input->destAddr, input->SrcPort, input->SrcAddr, input->state, input->pendCon);
-			transmapInsert(&srBuffer,seqNum, sendTCP);
-			call node.TCPPacket(&sendTCP, input);
+			value.seq = seqNum;
 			
+			value.TCPPack = sendTCP;
+			BuffListPushBack(&sendBuffer, value);
+			call node.TCPPacket(&sendTCP, input);
+			input->LastSeqSent = seqNum;
+			seqNum++;
+			//dbg("project3","HighestSeqSent = %d\n", input->LastSeqSent);
 			//call ReTransmitTimer.startPeriodic(1053 + (uint16_t) ((call Random.rand16())%200));
 			//count++;
 			allowedPacks++;
@@ -256,18 +296,7 @@ implementation{
 	}
 
 	event void ReTransmitTimer.fired(){
-		if(transmapIsEmpty(&srBuffer) == TRUE){
-			call ReTransmitTimer.stop();
-		}
-		else{
-			transport tempSendTCP;
-			transiteratorInit(&resend, &srBuffer);
-			while(transiteratorHasNext(&resend) == TRUE){
-					tempSendTCP = transiteratorNext(&resend);
-					call node.TCPPacket(&tempSendTCP, mySoc);
-					//dbg("project3", "Re-Transmit Packts\n");
-			}	
-		}
+	
 		
 	}
 }

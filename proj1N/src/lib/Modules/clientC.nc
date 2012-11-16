@@ -13,7 +13,7 @@
 #include "dataStructures/addrPort.h"
 
 enum{
-	BYTES_TO_SEND = 100
+	BYTES_TO_SEND = 20
 };
 
 module clientC{
