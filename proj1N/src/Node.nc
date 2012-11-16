@@ -31,7 +31,7 @@
 #include "dataStructures/addrPort.h"
 
 module Node{
-	provides interface node<TCPSocketAL>;
+	provides interface node<TCPSocketAL, transport>;
 	uses interface Boot;
 	uses interface Timer<TMilli> as pingTimeoutTimer;
 	
@@ -462,7 +462,7 @@ implementation{
 	}
 	
 	//For connect
-	command void node.TCPPacket(void *transportPacket, TCPSocketAL *Sckt){
+	command void node.TCPPacket(transport *transportPacket, TCPSocketAL *Sckt){
 		uint8_t Entry = 0;
 		uint8_t storecount = 0;
 		//transport* sup = (transport*)transportPacket;
@@ -472,6 +472,7 @@ implementation{
 				break;
 			}
 		}
+		//printTransport(transportPacket);
 		//dbg("project3", "seq %d\n", sequenceNum);
 		makePack(&sendPackage, TOS_NODE_ID, Sckt->destAddr, MAX_TTL, PROTOCOL_TCP, sequenceNum++, transportPacket, sizeof(transportPacket));
 		

@@ -42,6 +42,8 @@ implementation {
 	components new TimerMilliC() as ClientConnectTimer;
 	components new TimerMilliC() as ReTransmit;
 	
+	components new TimerMilliC() as SendReTransmit;
+	
 	components clientC as ALClient;
 	components new TimerMilliC() as ClientTimer;
 
@@ -93,4 +95,5 @@ implementation {
 	ALSocket.Random -> Random;
 	ALSocket.ClientConnectTimer -> ClientConnectTimer;
 	ALSocket.ReTransmitTimer -> ReTransmit;
+	TCPManager.ReTransmit -> SendReTransmit;
 }

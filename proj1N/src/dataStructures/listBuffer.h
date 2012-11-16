@@ -86,4 +86,12 @@ bool BuffListContains(Bufflist* list, uint8_t SEQ){
 	return FALSE;
 }
 
+uint8_t NumBuffListContains(Bufflist* list, uint8_t SEQ){
+	uint8_t i=0;
+	for(i; i<list->numValues; i++){
+		if(SEQ == list->values[i].seq) return i;
+	}
+	return -1;
+}
+
 #endif /* LISTBUFFER_H */

@@ -47,6 +47,8 @@ typedef struct TCPSocketAL{
 	uint8_t NextByteExpected;
 	uint8_t ExpectedSeqNum;
 	
+	
+	uint16_t EffectiveWindow;
 	uint8_t LastSeqSent;
 	uint8_t LastByteAcked;
 	/*Insert Variables Here */

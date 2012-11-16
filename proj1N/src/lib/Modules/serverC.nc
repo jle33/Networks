@@ -48,7 +48,7 @@ implementation{
 			//Attempt to Establish a Connection
 			if(call TCPSocket.accept(mServer.socket, &connectedSock) == TCP_ERRMSG_SUCCESS){
 				serverWorkerAL newWorker;	
-				dbg("project3", "Connected SOCKET destport %d destaddr %d, srcport %d, srcaddr %d, state %d ID %d\n", connectedSock.destPort, connectedSock.destAddr, connectedSock.SrcPort, connectedSock.SrcAddr, connectedSock.state, connectedSock.ID  );												
+				//dbg("project3", "Connected SOCKET destport %d destaddr %d, srcport %d, srcaddr %d, state %d ID %d\n", connectedSock.destPort, connectedSock.destAddr, connectedSock.SrcPort, connectedSock.SrcAddr, connectedSock.state, connectedSock.ID  );												
 				dbg("serverAL", "serverAL - Connection Accepted.\n");				
 				//create a worker.
 				call serverWorker.init(&newWorker, &connectedSock);
@@ -86,7 +86,7 @@ implementation{
 		
 		call TCPSocket.copy(inputSocket, worker->socket);
 		
-		dbg("project3", "After Copy destport %d destaddr %d, srcport %d, srcaddr %d, state %d ID %d\n",  worker->socket->destPort, worker->socket->destAddr, worker->socket->SrcPort, worker->socket->SrcAddr, worker->socket->state, worker->socket->ID  );												
+		//dbg("project3", "After Copy destport %d destaddr %d, srcport %d, srcaddr %d, state %d ID %d\n",  worker->socket->destPort, worker->socket->destAddr, worker->socket->SrcPort, worker->socket->SrcAddr, worker->socket->state, worker->socket->ID  );												
 		
 		//worker->socket->addr, worker->socket->destAddr);		
 		dbg("serverAL", "serverAL - Worker Intilized\n");

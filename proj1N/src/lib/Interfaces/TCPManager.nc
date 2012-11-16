@@ -7,5 +7,6 @@ interface TCPManager<val_t, val2_t>{
 	command void storeOntoActiveSocketsList(val_t*);
 	command val2_t getConnection();
 	command uint8_t getPort();
+	command val_t requestSoc(uint8_t Ports);
 	//command void buffer(uint16_t destaddr);
 }
