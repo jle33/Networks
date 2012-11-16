@@ -65,7 +65,6 @@ implementation{
 			}
 			
 			bufferIndex = mClient.position % CLIENTAL_BUFFER_SIZE;
-			dbg("project3", "bufferIndex: %d\n", bufferIndex);
 			if(bufferIndex == 0){ // Out of data, time to create more.
 				uint16_t i, offset;
 				
@@ -75,7 +74,7 @@ implementation{
 				for(i=0; i< CLIENTAL_BUFFER_SIZE; i++){
 					mClient.buffer[i] = (uint8_t)((mClient.position + i + offset)&0x00FF); //Clears first 8 bits in the 16bit int.
 					
-					//dbg("clientAL", "clientAL - POS: %lu, Data: %hhu \n", i, mClient.buffer[i]);
+				//	dbg("clientAL", "clientAL - POS: %lu, Data: %hhu \n", i, mClient.buffer[i]);
 				}
 			}
 			
@@ -104,7 +103,7 @@ implementation{
 			mClient.position += count;
 		}else if(call TCPSocket.isClosing(mClient.socket)){
 			//Debugging statements
-			dbg("clientAL", "clientAL ----- CLOSING!\n");
+			//dbg("clientAL", "clientAL ----- CLOSING!\n");
 		}else if(call TCPSocket.isClosed( (mClient.socket) )){
 			uint32_t endTime = call ClientTimer.getNow();
 			

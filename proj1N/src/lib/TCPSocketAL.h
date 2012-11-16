@@ -21,7 +21,7 @@ enum TCPSOCKET_STATE{
 
 enum TCPSOCKET_ERR_MSG{
  
-	TCP_ERRMSG_SUCCESS = TRUE
+	TCP_ERRMSG_SUCCESS = 1
  
 };  
 
@@ -40,6 +40,10 @@ typedef struct TCPSocketAL{
 	uint16_t ADWIN;
 	uint16_t CWIN;
 	uint16_t ID;
+	uint8_t Buffdata[20];//Just because I can;
+	uint8_t LastbyteRecv;
+	uint8_t NextByteExpected;
+	uint8_t ExpectedSeqNum;
 	/*Insert Variables Here */
 }TCPSocketAL;
 

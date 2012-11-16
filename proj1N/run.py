@@ -33,7 +33,9 @@ t.addChannel("clientAL", sys.stdout)
 t.addChannel("serverAL", sys.stdout)
 t.addChannel("project3", sys.stdout)
 t.addChannel("error", sys.stdout)
-#t.addChannel("transport", sys.stdout)
+t.addChannel("transport", sys.stdout)
+t.addChannel("data",sys.stdout)
+
 noise = open("no_noise.txt", "r")
 
 numNodes = 6
@@ -108,7 +110,7 @@ runTime(200)
 #sendCMD("1 3 hello")
 sendCMD("4 4 cmd server 29")
 sendCMD("2 2 cmd client 99 29 4")
-runTime(200)
+runTime(500)
 
 #sendCMD("3 3 cmd client 99 29 4")
 

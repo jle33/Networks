@@ -27,10 +27,15 @@ implementation{
 	TCPSocketAL *mySoc;
 	uint8_t conAttempt = 0;
 	int bufpos = 0;
-	transmap srBuffer; //send or receive buffer
+	transmap srBuffer; //sender buffer
 	transiterator resend;
 	hashmap rBuffer;
 	uint8_t keyIn = 0;
+	
+	command void TCPSocket.IntBuff(){
+		transmapInit(&srBuffer);	
+		hashmapInit(&rBuffer);
+	}
 	
 	async command void TCPSocket.StoreData(uint8_t data, uint8_t seq){
 		hashmapInsert(&rBuffer, seq , data);
@@ -47,15 +52,17 @@ implementation{
 		input->maxCon = 0;
 		input->pendCon = 0;
 		input->con = 0;
-		input->RWS = 5;
-		input->SWS = 5;	
-		input->ADWIN = SERVER_WORKER_BUFFER_SIZE;
+		input->RWS = 20;
+		input->SWS = 20;	
+		input->LastbyteRecv = 0;
+		input->ADWIN = 20;
 		input->CWIN = 0;
 		input->ID = -1;	
+		input->NextByteExpected = 0;
+		input->ExpectedSeqNum = 0;
+		
 		//Might be a bug if this function keeps running, unless it creates multiple instances of this, than it's perfect, else call from TCPManager,
 		//Also figure out for multiple connections
-		transmapInit(&srBuffer);	
-		hashmapInit(&rBuffer);
 	}
 	
 	async command uint8_t TCPSocket.bind(TCPSocketAL *input, uint8_t localPort, uint16_t address){
@@ -84,11 +91,13 @@ implementation{
 		}
 		
 		if((input->pendCon > 0) /*&& !(input->pendCon > input->maxCon)*/){
-			//dbg("serverAL", "Creating new Socket -  Accepting connection\n");
-			output = call TCPManager.socket();
+			dbg("serverAL", "Creating new Socket -  Accepting connection\n");
+			//output = call TCPManager.socket();
 			output->SrcAddr = input->SrcAddr; 
-			output->SrcPort = call TCPManager.portCheck(output->SrcPort, output->ID);
+			//output->SrcPort = call TCPManager.portCheck(0, output->ID);
+			output->SrcPort = call TCPManager.getPort();
 			if(output->SrcPort == -1){
+				dbg("project3", "SrcPort Not Good\n");
 				return -1;
 			}
 			destAddrPort = call TCPManager.getConnection();
@@ -97,7 +106,7 @@ implementation{
 			output->state = ESTABLISHED;
 			input->pendCon--;
 			input->con++;
-			createTransport(&sendTCP,  output->SrcPort, output->destPort, TRANSPORT_ACK, 0, 0, NULL, 0);
+			createTransport(&sendTCP,  output->SrcPort, output->destPort, TRANSPORT_ACK, input->ADWIN, 0, NULL, 0);
 			call node.TCPPacket(&sendTCP, output);
 		}
 		else{
@@ -105,7 +114,7 @@ implementation{
 			return -1;
 		}
 		//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d Connections: %d\n", input->ID, input->destPort, input->destAddr, input->SrcPort, input->SrcAddr, input->state, input->pendCon);
-		//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n", output->ID, output->destPort, output->destAddr, output->SrcPort, output->SrcAddr, output->state);
+		//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n",output->ID, output->destPort, output->destAddr, output->SrcPort, output->SrcAddr, output->state);
 		//Somehow check if those two are correct?? so just a check
 		return 1;
 	}	
@@ -114,92 +123,73 @@ implementation{
 	async command uint8_t TCPSocket.connect(TCPSocketAL *input, uint16_t destAddr, uint8_t destPort){
 		input->destAddr = destAddr;
 		input->destPort = destPort;
-		dbg("project3", "Sending SYN to destAddr %d destPort %d \n", destAddr, destPort);
+		//dbg("project3", "Sending SYN to destAddr %d destPort %d \n", destAddr, destPort);
 		createTransport(&sendTCP, input->SrcPort, destPort, TRANSPORT_SYN, 0, 0, NULL, 0);
 		call node.TCPPacket(&sendTCP, input);
 		input->state = SYN_SENT;
 		mySoc = input;
-		call ClientConnectTimer.startPeriodic(1733 + (uint16_t) ((call Random.rand16())%200));
+		//call ClientConnectTimer.startPeriodic(1733 + (uint16_t) ((call Random.rand16())%200));
 		return TRUE;
 	}
 
 	async command uint8_t TCPSocket.close(TCPSocketAL *input){
+		dbg("project3", "Close\n ");
 		input->state = CLOSING;
 		createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_FIN, 0, 0, NULL, 0);
 		call node.TCPPacket(&sendTCP, input);
-		//Server goes and sends back a FIN + ACK, saying the server has release all information
-		//make sure final FIN has arrived than put state to close
+
 		return 1;
 	}
 
 	async command uint8_t TCPSocket.release(TCPSocketAL *input){
 		//Somehow release all related data to that connection, purge buffer?
 		//input->state = SHUTDOWN;
-		input->state = CLOSED;
+		//input->state = CLOSED;
 		return 0;
 	}
-
+	
+	
 	async command int16_t TCPSocket.read(TCPSocketAL *input, uint8_t *readBuffer, uint16_t pos, uint16_t len){
-		uint16_t count = 0;
-		if(Buffer[0] == 0){
-			return count;
+		uint16_t NextByteRead = 0; //NextNextByteRead
+		if(input->LastbyteRecv == 0){
+			return NextByteRead;
 		}
-		//dbg("project3", "pos %d \t len %d\n", pos, len);
-		for(pos; pos < (len+pos); pos++){
-			if(Buffer[pos] == 0){
-				return count;
-			}
-			readBuffer[pos] = Buffer[bufpos];
-			dbg("project3", "readBuffer %d\n", readBuffer[pos]);
-			bufpos++;
-			count++;			
+		//dbg("project3", "LastbyteRecv  %d \t NextByteRead   %d\n", input->LastbyteRecv, NextByteRead);
+		for(pos; pos < input->LastbyteRecv; pos++){
+				readBuffer[pos] = input->Buffdata[NextByteRead];
+				dbg("data", "Data Being Read: %d\n", readBuffer[pos]);
+				NextByteRead++;			
 		}
-
-		return count;
+		//input->LastbyteRecv = 0;
+		return NextByteRead;
 	}
 
 	async command int16_t TCPSocket.write(TCPSocketAL *input, uint8_t *writeBuffer, uint16_t pos, uint16_t len){
 		uint16_t count = 0;
 		uint8_t storecount = 0;
-		//uint8_t storage[13];
 		uint8_t storage;
 		uint8_t allowedPacks = 0;
-				
-		dbg("project3", "pos: %d    len: %d\n",pos,len);
-		dbg("project3", "ADWIN %d\n", input->ADWIN);
+		//dbg("project3", "pos: %d    len: %d\n",pos,len);
+		//dbg("project3", "ADWIN %d\n", input->ADWIN);
 		for(pos; pos < (len+pos); pos++){
-			if(allowedPacks < input->ADWIN && allowedPacks < len){
-		//while(pos < len){
-			//dbg("project3", "count %d\n",  (writeBuffer[pos]));
-			//storecount = 0;
-			//storage[0] = writeBuffer[pos];
+			if((allowedPacks < input->ADWIN) && (allowedPacks < len)){
 			storage = writeBuffer[pos];
-			//dbg("project3", "storage[%d] = %d\n", pos, writeBuffer[pos]);
-			/*while(storecount < 13){
-				storage[storecount] = writeBuffer[pos];
-				dbg("project3", "pos %d\tstorage[%d] = %d\n",pos, storecount, storage[storecount]);
-				pos++;
-				storecount++;
-				count++;
-				if(pos >= len){
-					break;
-				}
-			}*/
-			//call TCPSocket.StoreData(storage);
+			dbg("data", "Data Being Sent: %d\n", storage);
 			createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_DATA, 0, seqNum++, &storage, sizeof(storage));
+			//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrcAddr: %d State: %d Connections: %d\n", input->ID, input->destPort, input->destAddr, input->SrcPort, input->SrcAddr, input->state, input->pendCon);
+			transmapInsert(&srBuffer,seqNum, sendTCP);
 			call node.TCPPacket(&sendTCP, input);
 			
-			transmapInsert(&srBuffer, transhash3(seqNum, 1), sendTCP);
-			call ReTransmitTimer.startPeriodic(1053 + (uint16_t) ((call Random.rand16())%200));
-			count++;
+			//call ReTransmitTimer.startPeriodic(1053 + (uint16_t) ((call Random.rand16())%200));
+			//count++;
 			allowedPacks++;
 			}
 			else{
-				dbg("project3", "count: %d \t allowedPacks: %d\n", count, allowedPacks);
-				return count;
+				//dbg("project3", "count: %d \t allowedPacks: %d\n", count, allowedPacks);
+				return allowedPacks;
 			}
 		}
-		return count;
+		return allowedPacks;
 	}
 
 	async command bool TCPSocket.isListening(TCPSocketAL *input){
@@ -238,8 +228,13 @@ implementation{
 	}
 	
 	async command void TCPSocket.copy(TCPSocketAL *input, TCPSocketAL *output){
-			*output = *input;	
 			
+			output->state = input->state;
+			output->destAddr = input->destAddr;
+			output->destPort = input->destPort;
+			output->SrcAddr = input->SrcAddr;
+			//dbg("project3","output->ID %d input->SrcPort %d \n", output->ID, input->SrcPort);
+			output->SrcPort = call TCPManager.portCheck(input->SrcPort, output->ID);
 			
 	}
 
@@ -255,7 +250,7 @@ implementation{
 		else{
 			dbg("project3", "CLIENT CLOSING\n");
 			mySoc->state = CLOSED;
-			call ClientConnectTimer.stop();
+			//call ClientConnectTimer.stop();
 		}
 				
 	}
@@ -270,7 +265,7 @@ implementation{
 			while(transiteratorHasNext(&resend) == TRUE){
 					tempSendTCP = transiteratorNext(&resend);
 					call node.TCPPacket(&tempSendTCP, mySoc);
-					dbg("project3", "Re-Transmit Packts\n");
+					//dbg("project3", "Re-Transmit Packts\n");
 			}	
 		}
 		

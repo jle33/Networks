@@ -43,11 +43,12 @@ implementation{
 	
 	
 		if( call TCPSocket.isClosed(mServer.socket) == FALSE){ // had a ! in front
-		 
+		 	
 			TCPSocketAL connectedSock;
 			//Attempt to Establish a Connection
-			if(call TCPSocket.accept(mServer.socket, &(connectedSock)) == TCP_ERRMSG_SUCCESS){
-				serverWorkerAL newWorker;
+			if(call TCPSocket.accept(mServer.socket, &connectedSock) == TCP_ERRMSG_SUCCESS){
+				serverWorkerAL newWorker;	
+				dbg("project3", "Connected SOCKET destport %d destaddr %d, srcport %d, srcaddr %d, state %d ID %d\n", connectedSock.destPort, connectedSock.destAddr, connectedSock.SrcPort, connectedSock.SrcAddr, connectedSock.state, connectedSock.ID  );												
 				dbg("serverAL", "serverAL - Connection Accepted.\n");				
 				//create a worker.
 				call serverWorker.init(&newWorker, &connectedSock);
@@ -85,6 +86,8 @@ implementation{
 		
 		call TCPSocket.copy(inputSocket, worker->socket);
 		
+		dbg("project3", "After Copy destport %d destaddr %d, srcport %d, srcaddr %d, state %d ID %d\n",  worker->socket->destPort, worker->socket->destAddr, worker->socket->SrcPort, worker->socket->SrcAddr, worker->socket->state, worker->socket->ID  );												
+		
 		//worker->socket->addr, worker->socket->destAddr);		
 		dbg("serverAL", "serverAL - Worker Intilized\n");
 	}
@@ -110,8 +113,13 @@ implementation{
 			}
 			
 			if(count > 0 ){
+				
+			
 				uint16_t i;
 				for(i=0; i<count; i++){
+					//dbg_clear("project3", "Worker->buffer %d\t ???: %d\n", worker->buffer[ (i+worker->position)%SERVER_WORKER_BUFFER_SIZE], (0x00FF&(i+bufferIndex))  );
+									
+				
 					if( worker->buffer[ (i+worker->position)%SERVER_WORKER_BUFFER_SIZE] != (0x00FF&(i+bufferIndex))){ // Makes a 16 bit into a byte.(8 bits);
 						dbg("serverAL", "Releasing socket\n");
 						dbg("serverAL", "Buffer Index: %lu Position: %lu\n", i+bufferIndex, worker->position);
