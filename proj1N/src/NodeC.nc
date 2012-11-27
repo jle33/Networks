@@ -41,7 +41,7 @@ implementation {
 	components new TimerMilliC() as ConnectTimer;
 	components new TimerMilliC() as ClientConnectTimer;
 	components new TimerMilliC() as ReTransmit;
-	
+	components new TimerMilliC() as AckRend;
 	components new TimerMilliC() as SendReTransmit;
 	
 	components clientC as ALClient;
@@ -96,4 +96,5 @@ implementation {
 	ALSocket.ClientConnectTimer -> ClientConnectTimer;
 	ALSocket.ReTransmitTimer -> ReTransmit;
 	TCPManager.ReTransmit -> SendReTransmit;
+	TCPManager.AckResent -> AckRend;
 }

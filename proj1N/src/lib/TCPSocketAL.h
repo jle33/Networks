@@ -9,7 +9,7 @@
 
 #ifndef TCP_SOCKET_AL_H
 #define TCP_SOCKET_AL_H
-
+#include "transport.h"
 enum TCPSOCKET_STATE{
 	CLOSED=0,
 	LISTEN=1,
@@ -35,22 +35,21 @@ typedef struct TCPSocketAL{
 	uint8_t pendCon; //PendingConnections
 	uint8_t maxCon; //Max number of supported Connections
 	uint8_t con;
-	uint8_t SWS;
-	uint8_t RWS;
+
 	uint16_t ADWIN;
-	uint16_t CWIN;
+	//uint8_t dataRead;
+	uint8_t ExpectedPacket;
+	uint8_t LastPacketRead;
+	uint8_t LastPacketSent;
 	uint16_t ID;
+	uint8_t SizeofBuffer;
 	uint8_t Buffdata[128];//Just because I can;
+	uint8_t seqNum;
+	uint8_t CurrentSeqAcked;
 	
-	uint8_t LastByteRead;
-	uint8_t LastbyteRecv;
-	uint8_t NextByteExpected;
-	uint8_t ExpectedSeqNum;
-	
-	
-	uint16_t EffectiveWindow;
-	uint8_t LastSeqSent;
-	uint8_t LastByteAcked;
+	transport ACKBuffer[128];
+	uint8_t ACKIndex;
+
 	/*Insert Variables Here */
 }TCPSocketAL;
 

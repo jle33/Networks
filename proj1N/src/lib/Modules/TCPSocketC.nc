@@ -20,26 +20,33 @@ module TCPSocketC{
 	
 }
 implementation{	
-	uint8_t seqNum = 0;
 	transport sendTCP;
 	addrPort Pair;
 	uint8_t Buffer[128];//Socket buffer
 	uint8_t bufCount = 0;
-	TCPSocketAL mySoc;
+	TCPSocketAL RetransmitSocket;
 	uint8_t conAttempt = 0;
 	int bufpos = 0;
-	//transmap srBuffer; //sender buffer
 	transiterator resend;
-	//hashmap rBuffer;
+
 	uint8_t keyIn = 0;
 	Bufflist sendBuffer;
 	sendBuff value;
 	transport sendTEMP;
 	uint8_t ConnectPort;
 	
+	transport WaitBuffer[64];
+	bool allowWrite = TRUE;
+	
+	uint8_t CurrentIndex= 0;
+	uint8_t PacketsSent = 0;
+
+	
+	command void TCPSocket.allowWrite(){
+		allowWrite = TRUE;
+	}
+	
 	command void TCPSocket.IntBuff(){
-		//transmapInit(&srBuffer);	
-		//hashmapInit(&rBuffer);
 		BuffListInit(&sendBuffer);
 	}
 	
@@ -50,6 +57,7 @@ implementation{
 	}
 	
 	async command void TCPSocket.init(TCPSocketAL *input){		
+		uint8_t i = 0;
 		input->destPort = 0;
 		input->destAddr = 0;
 		input->SrcPort = 0;
@@ -59,22 +67,19 @@ implementation{
 		input->pendCon = 0;
 		input->con = 0;
 		input->ID = -1;	
+			
 		
-		input->RWS = 128;
-		input->SWS = 128;	
-	
-		input->ADWIN = 128;
-		input->CWIN = 0;
-		
-		input->LastByteRead = 0;
-		input->LastbyteRecv = 0;
-		input->NextByteExpected = 0;
-		input->ExpectedSeqNum = 0;
-		
-		
-		input->LastSeqSent = 0;
-		input->LastByteAcked = 0;
-		
+		input->ADWIN = 10;
+		input->LastPacketSent = 0;
+		input->seqNum = 0;
+		input->CurrentSeqAcked = 0;
+		input->LastPacketRead = 0;
+		input->SizeofBuffer = 0;
+		input->ExpectedPacket = 1;
+		input->ACKIndex = 0;
+		for (i = 0; i < 128; i++){
+			input->Buffdata[i] = 0;
+		}
 		//Might be a bug if this function keeps running, unless it creates multiple instances of this, than it's perfect, else call from TCPManager,
 		//Also figure out for multiple connections
 	}
@@ -120,7 +125,7 @@ implementation{
 			output->state = ESTABLISHED;
 			input->pendCon--;
 			input->con++;
-			createTransport(&sendTCP,  output->SrcPort, output->destPort, TRANSPORT_ACK, input->ADWIN, 0, NULL, 0);
+			createTransport(&sendTCP,  output->SrcPort, output->destPort, TRANSPORT_ACK, input->ADWIN, 1, NULL, 0);
 			call node.TCPPacket(&sendTCP, output);
 		}
 		else{
@@ -138,17 +143,12 @@ implementation{
 		input->destAddr = destAddr;
 		input->destPort = destPort;
 		//dbg("project3", "Sending SYN to destAddr %d destPort %d \n", destAddr, destPort);
-		createTransport(&sendTCP, input->SrcPort, destPort, TRANSPORT_SYN, 0, 0, NULL, 0);
+		createTransport(&sendTCP, input->SrcPort, destPort, TRANSPORT_SYN, input->seqNum, 0, NULL, 0);
+		input->seqNum++;
 		sendTEMP = sendTCP;
 		call node.TCPPacket(&sendTCP, input);
 		input->state = SYN_SENT;
 		ConnectPort = input->SrcPort;
-		
-		//mySoc = call TCPManager.socket();
-		//mySoc->SrcPort = call TCPManager.getPort();
-		//call TCPSocket.copy(input, mySoc);
-		
-		call ClientConnectTimer.startPeriodic(1733);
 		return TRUE;
 	}
 
@@ -175,15 +175,23 @@ implementation{
 		if(call TCPSocket.isConnected(input) == FALSE){
 			return NextByteRead;
 		}
-		if(input->LastbyteRecv == 0){
+		if(input->SizeofBuffer == 0){
 			return NextByteRead;
 		}
-		//dbg("project3", "LastbyteRecv  %d \t NextByteRead   %d\n", input->LastbyteRecv, NextByteRead);
-		for(pos; pos < input->LastbyteRecv; pos++){
-				readBuffer[pos] = input->Buffdata[input->LastByteRead];
-				input->LastByteRead++;
-				dbg("data", "Data Being Read: %d\n", readBuffer[pos]);
-				NextByteRead++;			
+		if(input->Buffdata[input->LastPacketRead] == 0){
+			return NextByteRead;
+		}
+		//dbg("project3", "pos %d , len %d \n", pos, len);
+		for(pos; pos < (len + pos); pos++){
+				readBuffer[pos] = input->Buffdata[input->LastPacketRead];
+				input->LastPacketRead++;
+				dbg("dataRead", "Data Being Read: %d, LastPacketRead+1 %d\n", readBuffer[pos], input->LastPacketRead);
+				NextByteRead++;	
+				input->ADWIN++;
+				//dbg("project3", "BuffData = %d\n", input->Buffdata[input->LastPacketRead] );
+				if(input->Buffdata[input->LastPacketRead] == 0){
+					return NextByteRead;
+				}
 		}
 		return NextByteRead;
 	}
@@ -201,40 +209,28 @@ implementation{
 				}
 			}
 		}
-
-		
-	}
-	command void TCPSocket.ReTransmitPackets(TCPSocketAL *input){
-
-		uint8_t i = 0;
-		uint8_t SizeBuff = BuffListSize(&sendBuffer);
-		transport packet;
-		sendBuff temp;
-		TCPSocketAL toto;
-		toto.destAddr = input->destAddr;
-		dbg("project3", "Retransmitting packets\n");
-		//dbg("project3", "ID: %d, SrcAddr %d, SrcPort %d, DestAddr %d, DestPort %d, State %d\n", input->ID, input->SrcAddr, input->SrcPort, input->destAddr, input->destPort, input->state);
-		for(i = 0; i<SizeBuff; i++){
-			temp = BuffListGet(&sendBuffer, i);
-			packet = temp.TCPPack;
-			//dbg("project3", "Retransmitting packets\n");
-			//printTransport(&packet);
-			call node.TCPPacket(&packet, &toto);
-		}
 	}
 	
+	command void TCPSocket.ReTransmitPackets(TCPSocketAL *input, uint8_t starthere){
+		int i = 0;
+		dbg("project3", "RETRANSMITTING\n");
+		for(i=0; i < PacketsSent; i++){
+				call node.TCPPacket(&WaitBuffer[i], input);
+		}
+	}
 	
 	command void TCPSocket.MiddleAck(uint8_t seq, TCPSocketAL *input){
 		sendBuff temp;
 		transport packet;
 		uint8_t MaxIndex = NumBuffListContains(&sendBuffer, seq);
 		uint8_t i = 0;
+		dbg("project3", "MidACK\n");
 		for(i = 0; i < MaxIndex; i++){
+			dbg("project3", "ACK individual packets within MID");
 			temp = Spop_front(&sendBuffer);
 			packet = temp.TCPPack;
-			dbg("project3", "MidACK\n");
-			printTransport(&packet);
-			input->LastByteAcked++;
+			//printTransport(&packet);
+			input->CurrentSeqAcked++;
 		}
 	}
 	
@@ -242,49 +238,54 @@ implementation{
 		sendBuff temp = Spop_front(&sendBuffer);
 		transport packet = temp.TCPPack;
 		dbg("project3", "Acked Packet with Seq %d\n", Seq);
-		printTransport(&packet);
+		//printTransport(&packet);
 	}
-	
+
 	command void TCPSocket.emptySendBuffer(){
-		
-		BuffListClear(&sendBuffer);
+		CurrentIndex = 0;
+		PacketsSent = 0;
+		call ReTransmitTimer.stop();
 	}
 	
 	
 	async command int16_t TCPSocket.write(TCPSocketAL *input, uint8_t *writeBuffer, uint16_t pos, uint16_t len){
 		uint8_t storage;
 		uint8_t allowedPacks = 0;
-		uint8_t CurSeq = 0;
-		
-		if((input->LastSeqSent - input->LastByteAcked) > input->ADWIN){
+		if(input->ADWIN == 0){
 			return allowedPacks;
 		}
-		input->EffectiveWindow = input->ADWIN - (input->LastSeqSent - input->LastByteAcked);
+		if(input->state != ESTABLISHED){
+			return allowedPacks;
+		}
 		//dbg("project3", "pos: %d    len: %d\n",pos,len);
-		//dbg("project3", "ADWIN %d\n", input->ADWIN);
+		if(allowWrite == TRUE){
 		for(pos; pos < (len+pos); pos++){
-			if((allowedPacks < /*input->ADWIN*/ input->EffectiveWindow) && (allowedPacks < len)){
-			storage = writeBuffer[pos];
-			//dbg("data", "Data Being Sent: %d\n", storage);
-			createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_DATA, 0, seqNum, &storage, sizeof(storage));
-			//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrcAddr: %d State: %d Connections: %d\n", input->ID, input->destPort, input->destAddr, input->SrcPort, input->SrcAddr, input->state, input->pendCon);
-			value.seq = seqNum;
-			
-			value.TCPPack = sendTCP;
-			BuffListPushBack(&sendBuffer, value);
-			call node.TCPPacket(&sendTCP, input);
-			input->LastSeqSent = seqNum;
-			seqNum++;
-			//dbg("project3","HighestSeqSent = %d\n", input->LastSeqSent);
-			//call ReTransmitTimer.startPeriodic(1053 + (uint16_t) ((call Random.rand16())%200));
-			//count++;
-			allowedPacks++;
+			allowWrite = FALSE;
+			if((allowedPacks < input->ADWIN) && (allowedPacks < len)){
+				storage = writeBuffer[pos];
+				dbg("dataWrite", "Data Being Sent: %d\n", storage);
+				createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_DATA, input->ADWIN,  input->seqNum++, &storage, sizeof(storage));
+				//printTransport(&sendTCP);
+				WaitBuffer[CurrentIndex] = sendTCP;
+				PacketsSent++;
+				CurrentIndex++;
+				input->LastPacketSent++;
+				call node.TCPPacket(&sendTCP, input);
+				allowedPacks++;
+				
 			}
 			else{
 				//dbg("project3", "count: %d \t allowedPacks: %d\n", count, allowedPacks);
 				return allowedPacks;
 			}
 		}
+		}else{
+			//dbg("project3", "Not allow to write\n");
+		}
+		RetransmitSocket.destAddr = input->destAddr;
+		RetransmitSocket.destPort = input->destPort;
+		//dbg("project3", "Calling Retransmit!#########################################\n");
+		call ReTransmitTimer.startPeriodic(1357);
 		return allowedPacks;
 	}
 
@@ -329,32 +330,16 @@ implementation{
 			output->destAddr = input->destAddr;
 			output->destPort = input->destPort;
 			output->SrcAddr = input->SrcAddr;
-			//dbg("project3","output->ID %d input->SrcPort %d \n", output->ID, input->SrcPort);
 			output->SrcPort = call TCPManager.portCheck(input->SrcPort, output->ID);
 			
 	}
 
 	event void ClientConnectTimer.fired(){
-		if(mySoc.state == ESTABLISHED){
-			call ClientConnectTimer.stop();
-		}
-		else if(conAttempt < 5){
-			//dbg("project3","Attempting to Establish connection\n");
-			mySoc = call TCPManager.requestSoc(ConnectPort);
-			conAttempt++;
-			//createTransport(&sendTCP, mySoc->SrcPort, mySoc->destPort, TRANSPORT_SYN, 0, 0, NULL, 0);
-			call node.TCPPacket(&sendTCP, &mySoc);	
-		}
-		else{
-			dbg("project3", "CLIENT CLOSING\n");
-			mySoc.state = CLOSED;
-			call ClientConnectTimer.stop();
-		}
+
 				
 	}
 
 	event void ReTransmitTimer.fired(){
-	
-		
+		call TCPSocket.ReTransmitPackets(&RetransmitSocket, 0);
 	}
 }

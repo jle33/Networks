@@ -382,7 +382,6 @@ implementation{
 										call TCPManager.init();
 										mSocket = call TCPManager.socket();
 										errorMsg = call ALSocket.bind(mSocket, srcPort, TOS_NODE_ID);
-										//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n", mSocket->ID, mSocket->destPort, mSocket->destAddr, mSocket->SrcPort, mSocket->SrcAddr, mSocket->state );
 										if(errorMsg == -1){
 											dbg("project3", "Problem with binding\n");
 											break;

@@ -13,7 +13,7 @@
 #include "dataStructures/addrPort.h"
 
 enum{
-	BYTES_TO_SEND = 20
+	BYTES_TO_SEND = 100
 };
 
 module clientC{
@@ -84,7 +84,7 @@ implementation{
 			}else{
 				len = mClient.amount;
 			}
-			dbg("clientAL", "len  %d\n", len);
+			//dbg("clientAL", "len  %d\n", len);
 			count = call TCPSocket.write((mClient.socket), mClient.buffer, bufferIndex, len);
 			
 			if(count == -1){

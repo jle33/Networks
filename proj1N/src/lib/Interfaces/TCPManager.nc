@@ -4,7 +4,6 @@ interface TCPManager<val_t, val2_t>{
 	command void freeSocket(val_t *);
 	command void handlePacket(void *, uint16_t);
 	command uint8_t portCheck(uint8_t localPort, uint16_t scktID);
-	command void storeOntoActiveSocketsList(val_t*);
 	command val2_t getConnection();
 	command uint8_t getPort();
 	command val_t requestSoc(uint8_t Ports);

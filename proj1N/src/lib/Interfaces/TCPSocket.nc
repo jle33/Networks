@@ -5,9 +5,9 @@ interface TCPSocket<val_t>{
 	async command void checkSendBuff(uint8_t seqCheck);
 	command void MiddleAck(uint8_t seq, val_t*);
 	command void emptySendBuffer();
-	command void ReTransmitPackets(val_t*);
+	command void ReTransmitPackets(val_t*, uint8_t start);
 	async command void init(val_t *input);
-
+	command void allowWrite();
 	async command uint8_t bind(val_t *input, uint8_t localPort, uint16_t address);
 	
 	async command uint8_t listen(val_t *input, uint8_t backlog);

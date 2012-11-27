@@ -20,7 +20,7 @@ for line in f:
     slen = 1 + slen
    
 # Channels used for debuging
-t.addChannel("genDebug", sys.stdout)
+#t.addChannel("genDebug", sys.stdout)
 #t.addChannel("cmdDebug", sys.stdout)
 #t.addChannel("Project1F", sys.stdout)
 #t.addChannel("Project1N", sys.stdout)
@@ -32,19 +32,22 @@ t.addChannel("genDebug", sys.stdout)
 t.addChannel("clientAL", sys.stdout)
 t.addChannel("serverAL", sys.stdout)
 t.addChannel("project3", sys.stdout)
-t.addChannel("error", sys.stdout)
+#t.addChannel("error", sys.stdout)
 t.addChannel("transport", sys.stdout)
-t.addChannel("data",sys.stdout)
+t.addChannel("dataRead",sys.stdout)
+t.addChannel("dataWrite", sys.stdout)
 
-noise = open("no_noise.txt", "r")
+#noise = open("no_noise.txt", "r")
+noise = open("heavy_noise_10_.txt", "r")
 
-numNodes = 6
+numNodes = 3
 for line in noise:
   str1 = line.strip()
   if str1:
     val = int(str1)
     for i in range(1, numNodes+1):
        t.getNode(i).addNoiseTraceReading(val)
+
 
 for i in range(1, numNodes+1):
     print "Creating noise model for ", i;
@@ -104,13 +107,13 @@ def sendCMD(string):
 #sendCMD("1 1 Run now!")
 #sendCMD("1 5 Hello BRO!")
 
-runTime(200)
+runTime(1000)
 #sendCMD("6 6 hello");
 #sendCMD("6 6 cmd ping 3 Hello");
 #sendCMD("1 3 hello")
-sendCMD("4 4 cmd server 29")
-sendCMD("2 2 cmd client 99 29 4")
-runTime(500)
+sendCMD("3 3 cmd server 29")
+sendCMD("1 1 cmd client 99 29 3")
+runTime(2000)
 
 #sendCMD("3 3 cmd client 99 29 4")
 
