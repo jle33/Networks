@@ -24,6 +24,7 @@ typedef struct clientAL{
 	uint16_t amount; //Amount of bytes to be sent.
 	
 	uint16_t position;
+	uint16_t position2;
 	uint8_t buffer[CLIENTAL_BUFFER_SIZE]; //send buffer?
 }clientAL;
 

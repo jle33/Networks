@@ -50,6 +50,10 @@ module Node{
 	uses interface TCPSocket<TCPSocketAL> as ALSocket;
 	uses interface server<TCPSocketAL> as ALServer;
 	uses interface client<TCPSocketAL> as ALClient;
+	
+	uses interface Chatserver<TCPSocketAL> as Chatserver;
+	uses interface Chatclient<TCPSocketAL> as Chatclient;
+	
 }
 
 implementation{
@@ -80,6 +84,8 @@ implementation{
 	uint8_t connectCount;
 	bool isActive = TRUE;
 	char *clser;
+	char *Name;
+	uint8_t *ChatPack;
 
 	
 	//Ping/PingReply Variables
@@ -304,6 +310,7 @@ implementation{
 			if(TOS_NODE_ID==myMsg->dest){				
 				//dbg("genDebug", "Packet from %d has arrived! Msg: %s\n", myMsg->src, myMsg->payload);
 				switch(myMsg->protocol){
+					uint8_t ik = 0;
 					uint8_t srcPort;
 					uint8_t destPort;
 					uint8_t createMsg[PACKET_MAX_PAYLOAD_SIZE];
@@ -352,6 +359,7 @@ implementation{
 							switch(getCMD((uint8_t *) & myMsg->payload, sizeof(myMsg->payload))){
 								uint32_t temp=0;
 								TCPSocketAL *mSocket;
+								
 								case CMD_PING:
 								   // dbg("genDebug", "Ping packet received: %lu\n", temp);
 									memcpy(&createMsg, (myMsg->payload) + PING_CMD_LENGTH, sizeof(myMsg->payload) - PING_CMD_LENGTH);
@@ -406,6 +414,63 @@ implementation{
 										dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n", mSocket->ID, mSocket->destPort, mSocket->destAddr, mSocket->SrcPort, mSocket->SrcAddr, mSocket->state );	
 										call ALServer.init(mSocket);
 									break;
+									case CMD_CHATSERVER:
+										clser = myMsg->payload;
+										clser = strtok(clser," ");
+										clser = strtok(NULL, " ");
+										clser = strtok(NULL, " ");
+										srcPort = atoi(clser);
+										call TCPManager.init();
+										mSocket = call TCPManager.socket();
+										call ALSocket.bind(mSocket, srcPort, TOS_NODE_ID);
+										//dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n", mSocket->ID, mSocket->destPort, mSocket->destAddr, mSocket->SrcPort, mSocket->SrcAddr, mSocket->state );
+
+										call ALSocket.listen(mSocket, 5);
+										dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n", mSocket->ID, mSocket->destPort, mSocket->destAddr, mSocket->SrcPort, mSocket->SrcAddr, mSocket->state );	
+										call Chatserver.init(mSocket);
+									break;
+									
+									case CMD_HELLO:
+										
+										//dbg("project4", "here?\n");
+										clser = myMsg->payload;
+										//dbg("project4", "%s\n", clser);
+										clser = strtok(clser,"cmd ");
+										//dbg("project4", "%s\n", clser);
+										clser = strtok(NULL, " ");
+										Name = clser;
+										//dbg("project4", "Passing: %s Over\n", Name);
+										call Chatclient.SetUserName((uint8_t*)Name);
+									
+										
+										
+										
+									//	dbg("project4", "%s\n", clser);
+										clser = strtok(NULL, " ");
+										srcPort = atoi(clser);
+										call Chatclient.SetSrcPort(srcPort);
+									//	dbg("project4", "srcPort: %d\n", srcPort);
+										dest = 1;
+										destPort = 41;
+
+										call TCPManager.init();
+										mSocket = call TCPManager.socket();
+										errorMsg = call ALSocket.bind(mSocket, srcPort, TOS_NODE_ID);
+										if(errorMsg == -1){
+											dbg("project3", "Problem with binding\n");
+											break;
+										}
+										call ALSocket.connect(mSocket, dest, destPort);
+										dbg("project3", "Socket ID: %d destPort: %d destAddr: %d SrcPort: %d SrdAddr: %d State: %d\n", mSocket->ID, mSocket->destPort, mSocket->destAddr, mSocket->SrcPort, mSocket->SrcAddr, mSocket->state );
+										call Chatclient.init(mSocket);
+									break;
+									case CMD_MSG:
+										call Chatclient.SetMsg((uint8_t*) myMsg->payload);
+									break;
+									case CMD_LIST:
+										call Chatclient.setList((uint8_t*) myMsg->payload);
+									break;
+									
 								default:
 									break;
 							}
@@ -413,6 +478,7 @@ implementation{
 						case PROTOCOL_TCP: 
 							//dbg("project3","Handling Packet\n" );
 							//Store dest addr somehow for server
+							//printTransport(myMsg->payload);
 							call TCPManager.handlePacket(&myMsg->payload, myMsg->src);
 						break;
 					default:
@@ -420,7 +486,7 @@ implementation{
 				}
 				return msg;
 			}if(TOS_NODE_ID==myMsg->src){
-				dbg("cmdDebug", "Source is this node: %s\n", myMsg->payload);
+				//dbg("cmdDebug", "Source is this node: %s\n", myMsg->payload);
 				return msg;
 			}
 			if(TOS_NODE_ID != myMsg->dest){
@@ -472,7 +538,7 @@ implementation{
 			}
 		}
 		//printTransport(transportPacket);
-		//dbg("project3", "seq %d\n", sequenceNum);
+		//dbg("project3", "DestADDR!! %d\n", Sckt->destAddr);
 		makePack(&sendPackage, TOS_NODE_ID, Sckt->destAddr, MAX_TTL, PROTOCOL_TCP, sequenceNum++, transportPacket, sizeof(transportPacket));
 		
 		//	for(storecount = 0; storecount < sizeof(sup->payload); storecount++){

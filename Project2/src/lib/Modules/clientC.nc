@@ -13,7 +13,7 @@
 #include "dataStructures/addrPort.h"
 
 enum{
-	BYTES_TO_SEND = 100
+	BYTES_TO_SEND = 10
 };
 
 module clientC{
@@ -41,7 +41,7 @@ implementation{
 	
 	event void ClientTimer.fired(){
 		if(call TCPSocket.isConnectPending( (mClient.socket) )){
-			dbg("clientAL", "clientAL - Connection Pending...\n");
+			//dbg("clientAL", "clientAL - Connection Pending...\n");
 		}else if(call TCPSocket.isConnected( (mClient.socket) )){
 			uint16_t bufferIndex, len, count;
 			

@@ -21,7 +21,7 @@ for line in f:
    
 # Channels used for debuging
 #t.addChannel("genDebug", sys.stdout)
-#t.addChannel("cmdDebug", sys.stdout)
+t.addChannel("cmdDebug", sys.stdout)
 #t.addChannel("Project1F", sys.stdout)
 #t.addChannel("Project1N", sys.stdout)
 #t.addChannel("mydebug", sys.stdout)
@@ -29,18 +29,19 @@ for line in f:
 #t.addChannel("Project2", sys.stdout)
 #t.addChannel("Project2D", sys.stdout)
 #t.addChannel("Project3", sys.stdout)
-t.addChannel("clientAL", sys.stdout)
-t.addChannel("serverAL", sys.stdout)
-t.addChannel("project3", sys.stdout)
+#t.addChannel("clientAL", sys.stdout)
+#t.addChannel("serverAL", sys.stdout)
+#t.addChannel("project3", sys.stdout)
 #t.addChannel("error", sys.stdout)
-t.addChannel("transport", sys.stdout)
-t.addChannel("dataRead",sys.stdout)
-t.addChannel("dataWrite", sys.stdout)
+#t.addChannel("transport", sys.stdout)
+#t.addChannel("dataRead",sys.stdout)
+#t.addChannel("dataWrite", sys.stdout)
+t.addChannel("project4", sys.stdout)
 
 noise = open("no_noise.txt", "r")
-#noise = open("heavy_noise_10_.txt", "r")
+#noise = open("heavy_noise_30_.txt", "r")
 
-numNodes = 3
+numNodes = 5
 for line in noise:
   str1 = line.strip()
   if str1:
@@ -107,14 +108,30 @@ def sendCMD(string):
 #sendCMD("1 1 Run now!")
 #sendCMD("1 5 Hello BRO!")
 
-runTime(1000)
+#runTime(1000)
 #sendCMD("6 6 hello");
 #sendCMD("6 6 cmd ping 3 Hello");
 #sendCMD("1 3 hello")
-sendCMD("3 3 cmd server 29")
-sendCMD("1 1 cmd client 99 29 3")
+#sendCMD("3 3 cmd server 29")
+#sendCMD("1 1 cmd client 99 29 3")
+runTime(200)
+print("-------------------CHAT SERVER----------------------")
+sendCMD("1 1 cmd chat 41") #starts up the chat server
+runTime(200)
+sendCMD("3 3 cmd hello james 3\r\n")
+runTime(200)
+sendCMD("4 4 cmd hello adria 1\r\n")
+sendCMD("5 5 cmd hello nWang 2\r\n")
+runTime(600)
+#sendCMD("4 4 cmd hello jaml3 2\r\n")
+#sendCMD("2 2 cmd hello fooba 7\r\n")
+sendCMD("3 3 cmd msg Hello!\r\n")
 runTime(2000)
+sendCMD("3 3 cmd listusr\r\n")
+runTime(200)
 
+
+#sendCMD("4 4 cmd client 98 29 3")
 #sendCMD("3 3 cmd client 99 29 4")
 
 

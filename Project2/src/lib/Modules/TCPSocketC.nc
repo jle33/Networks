@@ -41,6 +41,13 @@ implementation{
 	uint8_t CurrentIndex= 0;
 	uint8_t PacketsSent = 0;
 
+	//Reconnect
+	uint16_t connectDest;
+	TCPSocketAL ConnectTempSoc;
+	uint16_t ConnectID;
+	transport connectionTCP;
+	uint16_t conID;
+	
 	
 	command void TCPSocket.allowWrite(){
 		allowWrite = TRUE;
@@ -69,7 +76,7 @@ implementation{
 		input->ID = -1;	
 			
 		
-		input->ADWIN = 10;
+		input->ADWIN = 30;
 		input->LastPacketSent = 0;
 		input->seqNum = 0;
 		input->CurrentSeqAcked = 0;
@@ -102,6 +109,11 @@ implementation{
 		return 0;
 	}
 	
+	command void TCPSocket.getConnectionRe(uint8_t* SrcPort, uint8_t* destPort, uint8_t* conSocID){
+		*SrcPort = connectionTCP.srcPort;
+		*destPort = connectionTCP.destPort;
+		*conSocID = conID;
+	}
 	async command uint8_t TCPSocket.accept(TCPSocketAL *input, TCPSocketAL *output){
 		addrPort destAddrPort;
 		
@@ -126,6 +138,7 @@ implementation{
 			input->pendCon--;
 			input->con++;
 			createTransport(&sendTCP,  output->SrcPort, output->destPort, TRANSPORT_ACK, input->ADWIN, 1, NULL, 0);
+			connectionTCP = sendTCP;
 			call node.TCPPacket(&sendTCP, output);
 		}
 		else{
@@ -146,6 +159,10 @@ implementation{
 		createTransport(&sendTCP, input->SrcPort, destPort, TRANSPORT_SYN, input->seqNum, 0, NULL, 0);
 		input->seqNum++;
 		sendTEMP = sendTCP;
+		connectDest = destAddr;
+		ConnectTempSoc.destAddr = connectDest;
+		ConnectID = input->ID;
+		call ClientConnectTimer.startPeriodic(2325);
 		call node.TCPPacket(&sendTCP, input);
 		input->state = SYN_SENT;
 		ConnectPort = input->SrcPort;
@@ -153,10 +170,10 @@ implementation{
 	}
 
 	async command uint8_t TCPSocket.close(TCPSocketAL *input){
-		dbg("project3", "Close\n ");
+		dbg("project3", "Close!#############################@#@\n ");
 		input->state = CLOSING;
-		createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_FIN, 0, 0, NULL, 0);
-		call node.TCPPacket(&sendTCP, input);
+		//createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_FIN, 0, 0, NULL, 0);
+		//call node.TCPPacket(&sendTCP, input);
 
 		return 1;
 	}
@@ -185,7 +202,8 @@ implementation{
 		for(pos; pos < (len + pos); pos++){
 				readBuffer[pos] = input->Buffdata[input->LastPacketRead];
 				input->LastPacketRead++;
-				dbg("dataRead", "Data Being Read: %d, LastPacketRead+1 %d\n", readBuffer[pos], input->LastPacketRead);
+				//dbg("dataRead", "Data Being Read: %c, LastPacketRead+1 %d\n", input->Buffdata[input->LastPacketRead-2], input->LastPacketRead);
+				dbg("dataRead", "Data Being Read: %c, pos: %d\n", readBuffer[pos], pos);
 				NextByteRead++;	
 				input->ADWIN++;
 				//dbg("project3", "BuffData = %d\n", input->Buffdata[input->LastPacketRead] );
@@ -212,8 +230,8 @@ implementation{
 	}
 	
 	command void TCPSocket.ReTransmitPackets(TCPSocketAL *input, uint8_t starthere){
-		int i = 0;
-		dbg("project3", "RETRANSMITTING\n");
+		int i = starthere;
+		//dbg("project3", "RETRANSMITTING\n");
 		for(i=0; i < PacketsSent; i++){
 				call node.TCPPacket(&WaitBuffer[i], input);
 		}
@@ -247,10 +265,12 @@ implementation{
 		call ReTransmitTimer.stop();
 	}
 	
-	
 	async command int16_t TCPSocket.write(TCPSocketAL *input, uint8_t *writeBuffer, uint16_t pos, uint16_t len){
 		uint8_t storage;
 		uint8_t allowedPacks = 0;
+		if(input->seqNum == 0){
+			input->seqNum++;
+		}
 		if(input->ADWIN == 0){
 			return allowedPacks;
 		}
@@ -263,7 +283,7 @@ implementation{
 			allowWrite = FALSE;
 			if((allowedPacks < input->ADWIN) && (allowedPacks < len)){
 				storage = writeBuffer[pos];
-				dbg("dataWrite", "Data Being Sent: %d\n", storage);
+				dbg("dataWrite", "Data Being Sent: %c\n", storage);
 				createTransport(&sendTCP, input->SrcPort, input->destPort, TRANSPORT_DATA, input->ADWIN,  input->seqNum++, &storage, sizeof(storage));
 				//printTransport(&sendTCP);
 				WaitBuffer[CurrentIndex] = sendTCP;
@@ -288,7 +308,8 @@ implementation{
 		call ReTransmitTimer.startPeriodic(1357);
 		return allowedPacks;
 	}
-
+	
+	
 	async command bool TCPSocket.isListening(TCPSocketAL *input){
 		if(input->state == LISTEN){
 			return TRUE;
@@ -331,11 +352,20 @@ implementation{
 			output->destPort = input->destPort;
 			output->SrcAddr = input->SrcAddr;
 			output->SrcPort = call TCPManager.portCheck(input->SrcPort, output->ID);
+			conID = output->ID;
 			
 	}
 
 	event void ClientConnectTimer.fired(){
-
+	//	dbg("project3", "Retransmitting Connectioin packet\n");
+		if(call TCPManager.CheckState(ConnectID) == FALSE){
+			printTransport(&sendTEMP);
+			call ClientConnectTimer.stop();
+		}
+		else{
+			printTransport(&sendTEMP);
+			call node.TCPPacket(&sendTEMP, &ConnectTempSoc);
+		}
 				
 	}
 

@@ -46,7 +46,28 @@ implementation {
 	
 	components clientC as ALClient;
 	components new TimerMilliC() as ClientTimer;
-
+	//Chat Stuff
+	components ChatclientC as ChatClient;
+	components new TimerMilliC() as ChatClientTimer;
+	
+	Node.Chatclient -> ChatClient;
+	
+	ChatClient.Random->Random;
+	ChatClient.TCPSocket -> ALSocket;
+	ChatClient.ChatClientTimer -> ChatClientTimer;
+	ChatClient.TCPManager -> TCPManager;
+	
+	
+	components ChatserverC as ChatServer;
+	components new TimerMilliC() as ChatServerTimer;
+	components new TimerMilliC() as ChatServerWorkerTimer;
+	
+	Node.Chatserver -> ChatServer;
+	ChatServer.ChatServerTimer -> ChatServerTimer;
+	ChatServer.ChatWorkerTimer -> ChatServerWorkerTimer;
+	ChatServer.TCPSocket -> ALSocket;
+	ChatServer.Random->Random;
+	ChatServer.TCPManager->TCPManager;
 
 	//Will finish Later
 	Node.ALServer -> ALServer;

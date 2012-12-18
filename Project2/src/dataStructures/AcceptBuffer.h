@@ -83,7 +83,7 @@ DataMe aPListGet(aPlist* cur, nx_uint8_t i){	return cur->values[i];}
 bool aPListContains(aPlist* list, uint8_t iPort, uint8_t iAddr){
 	uint8_t i=0;
 	for(i; i<list->numValues; i++){
-		if(iPort == list->values[i].destPort && iAddr == list->values[i].addr) return TRUE;
+		if((iPort == list->values[i].destPort) && (iAddr == list->values[i].addr)) return TRUE;
 	}
 	return FALSE;
 }

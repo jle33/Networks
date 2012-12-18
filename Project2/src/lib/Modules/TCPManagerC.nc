@@ -37,6 +37,8 @@ implementation{
 	bool pendingConnection = FALSE;
 	transport tempPack;
 	TCPSocketAL tempAckSock;
+	aPlist MYconnectedList;
+	
 	
 	void initSockets(){
 		int i = 0;
@@ -133,11 +135,18 @@ implementation{
 		}
 		return &avilableSockets[temp];
 	}
+	command bool TCPManager.isConnectedServer(addrPort PA){
+		if(aPListContains(&MYconnectedList, PA.addr , PA.destPort) == TRUE){
+			return TRUE;
+		}
+		return FALSE;
+	}
 	
 	command void TCPManager.handlePacket(void *payload, uint16_t destAddr){
 		transport* myMsg = (transport*) payload;
 		uint16_t sckID = ports[myMsg->destPort].scktID;
 		printTransport(myMsg);
+		//dbg("project3", "STATE:  %d\n",avilableSockets[ports[myMsg->destPort].scktID].state);
 		switch(myMsg->type){
 			case TRANSPORT_SYN:
 				switch(avilableSockets[ports[myMsg->destPort].scktID].state){
@@ -145,19 +154,37 @@ implementation{
 						ListenID = sckID;
 						Pairs.addr = destAddr;
 						Pairs.destPort = myMsg->srcPort;
-						if(pendingConnection == TRUE){
-							
+						/*if(pendingConnection == TRUE){
+							dbg("project3", "What is it doing\n");
+						}*/
+						
+
+						if(aPListContains(&acceptBuffer, Pairs.destPort , Pairs.addr) == FALSE){
+							if(aPListContains(&MYconnectedList, Pairs.destPort , Pairs.addr) == TRUE){
+								//dbg("project3", "sending ack to sender\n");
+								uint8_t SrcPortc;
+								uint8_t destPortc;
+								uint8_t conSocID;
+								call TCPSocket.getConnectionRe(&SrcPortc, &destPortc, &conSocID);
+								createTransport(&sendTCP, SrcPortc, destPortc, TRANSPORT_ACK, avilableSockets[sckID].ADWIN, 1, NULL, 0);
+								call node.TCPPacket(&sendTCP, &avilableSockets[conSocID]);
+							}
+							else{
+								addrPort temp = aPListGet(&MYconnectedList, (aPListSize(&MYconnectedList))-1);
+								//dbg("project3","SToring! SIZE!: %d\n", aPListSize(&MYconnectedList));
+								//dbg("project3", "Values: addr %d, destPort %d\n", temp.addr, temp.destPort);							
+								aPListPushBack(&MYconnectedList, Pairs);
+								pendingConnection = TRUE;
+								aPListPushBack(&acceptBuffer, Pairs);
+								avilableSockets[sckID].pendCon++;
+							}
 						}
-						else if(aPListContains(&acceptBuffer, Pairs.addr , Pairs.destPort) == FALSE){
-							pendingConnection = TRUE;
-							aPListPushBack(&acceptBuffer, Pairs);
-							avilableSockets[sckID].pendCon++;
-						}
+						
 					break;	
 					case CLOSED:
-						dbg("project3", "SERVER IS CLOSED, PLEASE TRY AGAIN\n");
+						//dbg("project3", "SERVER IS CLOSED, PLEASE TRY AGAIN\n");
 						avilableSockets[ports[myMsg->destPort].scktID].destAddr = destAddr;
-						createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_FIN, 0, 0, NULL, 0);
+						createTransport(&sendTCP, myMsg->destPort, myMsg->srcPort, TRANSPORT_FIN, 25, 0, NULL, 0);
 						call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
 					break;
 					default: dbg("project3", "SYN State %d \n", avilableSockets[ports[myMsg->destPort].scktID].state);
@@ -175,21 +202,42 @@ implementation{
 					case ESTABLISHED: //dbg("project3", "ACK ESTABLISHED\n");
 					//	dbg("project3", "LastPacketSent = %d == myMsg->seq = %d\n", avilableSockets[sckID].LastPacketSent+1, myMsg->seq);
 						if((avilableSockets[sckID].LastPacketSent+1) == myMsg->seq){
-							dbg("project3", "LastPacketSent = %d == myMsg->seq = %d\n", avilableSockets[sckID].LastPacketSent+1, myMsg->seq);
+					//		dbg("project3", "LastPacketSent = %d == myMsg->seq = %d\n", avilableSockets[sckID].LastPacketSent+1, myMsg->seq);
 							avilableSockets[sckID].ADWIN = myMsg->window;
+							avilableSockets[sckID].CurrentSeqAcked = avilableSockets[sckID].LastPacketSent;
 							call TCPSocket.emptySendBuffer();
 							call TCPSocket.allowWrite();
 						}
 						else if(myMsg->seq < (avilableSockets[sckID].LastPacketSent)){
 							if(myMsg->seq > avilableSockets[sckID].CurrentSeqAcked){
-								call TCPSocket.ReTransmitPackets(&avilableSockets[sckID], 0);
-								dbg("project3", "Why you here!!!? %d\n", myMsg->seq);
+								
+								call TCPSocket.ReTransmitPackets(&avilableSockets[sckID],0/*(avilableSockets[sckID].CurrentSeqAcked%10)+1*/);
+								avilableSockets[sckID].CurrentSeqAcked++;
+								//dbg("project3", "Why you here!!!? %d\n", myMsg->seq);
 							}
 						}
 
 					break;
 					case CLOSING: dbg("project3", "ACK CLOSING\n" );
-					
+						if((avilableSockets[sckID].LastPacketSent+1) == myMsg->seq){
+						//	dbg("project3", "LastPacketSent = %d == myMsg->seq = %d\t CurrentSeqAcked %d\n", avilableSockets[sckID].LastPacketSent+1, myMsg->seq,avilableSockets[sckID].CurrentSeqAcked );
+							avilableSockets[sckID].ADWIN = myMsg->window;
+							avilableSockets[sckID].CurrentSeqAcked = avilableSockets[sckID].LastPacketSent;
+							call TCPSocket.emptySendBuffer();
+							call TCPSocket.allowWrite();
+						}
+						else if(myMsg->seq < (avilableSockets[sckID].LastPacketSent)){
+							if(myMsg->seq > avilableSockets[sckID].CurrentSeqAcked){
+								call TCPSocket.ReTransmitPackets(&avilableSockets[sckID], 0/*(avilableSockets[sckID].CurrentSeqAcked%10)+1*/);
+								avilableSockets[sckID].CurrentSeqAcked++;
+								//dbg("project3", "Why you here!!!? %d\n", myMsg->seq);
+							}
+						}
+						if(avilableSockets[sckID].LastPacketSent == avilableSockets[sckID].CurrentSeqAcked){
+							createTransport(&sendTCP, avilableSockets[sckID].SrcPort, avilableSockets[sckID].destPort, TRANSPORT_FIN, 0, 0, NULL, 0);
+							call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
+							avilableSockets[sckID].state = CLOSED;
+						}
 					
 					break;
 					default: dbg("project3", "DATA State %d \n", avilableSockets[ports[myMsg->destPort].scktID].state); break;
@@ -201,8 +249,13 @@ implementation{
 						avilableSockets[sckID].state = CLOSED;
 					break;
 					case CLOSING: dbg("project3", "FIN CLOSING \n");
+						if(avilableSockets[sckID].LastPacketSent == avilableSockets[sckID].CurrentSeqAcked){
+							avilableSockets[sckID].state = CLOSED;
+						}
 					break;
 					case CLOSED: dbg("project3", "FIN CLOSED \n");
+						createTransport(&sendTCP, avilableSockets[sckID].SrcPort, avilableSockets[sckID].destPort, TRANSPORT_FIN, 0, 0, NULL, 0);
+						call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
 					break;
 					
 					default: dbg("project3", "State %d \n", avilableSockets[ports[myMsg->destPort].scktID].state); break;
@@ -213,7 +266,7 @@ implementation{
 					switch(avilableSockets[sckID].state){
 					case ESTABLISHED: //dbg("project3", "DATA ESTABLISHED\n");
 					
-						dbg("project3", "ExpectedPacket Seq = %d  ==  ArrivedPacket Seq = %d\n", avilableSockets[sckID].ExpectedPacket, myMsg->seq);
+					//	dbg("project3", "ExpectedPacket Seq = %d  ==  ArrivedPacket Seq = %d    LastPacketRead = %d\n", avilableSockets[sckID].ExpectedPacket, myMsg->seq, avilableSockets[sckID].LastPacketRead);
 						if(avilableSockets[sckID].ExpectedPacket == myMsg->seq){
 							avilableSockets[sckID].ExpectedPacket++;
 							avilableSockets[sckID].Buffdata[avilableSockets[sckID].SizeofBuffer] = myMsg->payload[0];
@@ -223,17 +276,17 @@ implementation{
 							avilableSockets[sckID].ACKBuffer[avilableSockets[sckID].ACKIndex] = sendTCP;
 							avilableSockets[sckID].ACKIndex++;
 							if(avilableSockets[sckID].ACKIndex >= 128){
-								dbg("project3", "Shit just happened\n");
+								dbg("project3", "Not good happened\n");
 							}
 							call node.TCPPacket(&sendTCP, &avilableSockets[sckID]);
 							}
 						else{
-							if(myMsg->seq > avilableSockets[sckID].LastPacketRead){
-								dbg("project3","Retransmitting latest ACK\n");
+							if(myMsg->seq >= avilableSockets[sckID].LastPacketRead){
+							//	dbg("project3","Retransmitting latest ACK\n");
 								avilableSockets[sckID].ACKBuffer[(avilableSockets[sckID].ACKIndex-1)].window = avilableSockets[sckID].ADWIN;
 								call node.TCPPacket(&avilableSockets[sckID].ACKBuffer[(avilableSockets[sckID].ACKIndex-1)], &avilableSockets[sckID]);
 							}
-							dbg("project3", "WTFHAPPANED!@$!@#$!\n");
+							//dbg("project3", "WTFHAPPANED!@$!@#$!\n");
 							}
 					break;
 					case SHUTDOWN: dbg("project3", "DATA SHUTDOWN\n");
@@ -249,6 +302,13 @@ implementation{
 			case TRANSPORT_TYPE_SIZE:
 			break;
 			}
+	}
+	
+	command bool TCPManager.CheckState(uint8_t ThescktID){
+		if(avilableSockets[ThescktID].state == SYN_SENT){
+			return TRUE;
+		}
+		return FALSE;
 	}
 	
 	command void TCPManager.freeSocket(TCPSocketAL *input){	
@@ -267,6 +327,7 @@ implementation{
 		}
 
 	event void ConnectTimer.fired(){
+		
 	}
 	
 	event void ReTransmit.fired(){

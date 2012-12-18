@@ -8,6 +8,7 @@ interface TCPSocket<val_t>{
 	command void ReTransmitPackets(val_t*, uint8_t start);
 	async command void init(val_t *input);
 	command void allowWrite();
+	command void getConnectionRe(uint8_t* SrcPort, uint8_t* destPort, uint8_t* conSocID);
 	async command uint8_t bind(val_t *input, uint8_t localPort, uint16_t address);
 	
 	async command uint8_t listen(val_t *input, uint8_t backlog);

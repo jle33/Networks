@@ -17,7 +17,13 @@ enum{
 	CMD_TEST_CLIENT=4,
 	CMD_TEST_SERVER=5,
 	CMD_KILL=6,
-	CMD_ERROR=66
+	CMD_ERROR=66,
+	
+	CMD_HELLO = 7,
+	CMD_MSG = 8,
+	CMD_CHATSERVER = 9,
+	CMD_LIST = 10
+	
 };
 
 //Lengths of commands
@@ -67,6 +73,29 @@ bool isPing(uint8_t *array, uint8_t size){
 	return FALSE;
 }
 
+bool ishello(uint8_t *array, uint8_t size){
+	if(array[4]=='h' && array[5]=='e' &&  array[6]=='l' && array[7]=='l'
+	&& array[8]=='o' && array[9]==' ')return TRUE;
+	return FALSE;
+}
+bool ismsg(uint8_t *array, uint8_t size){
+	if(array[4]=='m' && array[5]=='s' &&  array[6]=='g')return TRUE;
+	return FALSE;
+}
+bool islist(uint8_t *array, uint8_t size){
+	if(array[4]=='l' && array[5]=='i' &&  array[6]=='s' && array[7]=='t'
+	&& array[8]=='u' && array[9]=='s' && array[10]=='r')return TRUE;
+	return FALSE;
+}
+bool isChat(uint8_t *array, uint8_t size){
+	if(array[4]=='c' && array[5]=='h' &&  array[6]=='a' && array[7]=='t')return TRUE;
+	return FALSE;
+}
+
+
+
+
+
 /*
  * getCmd - processes a string to find out which command is being issued. A Command ID is returned based on the
  * enum declared. Also debugging information is sent to the cmdDebug channel.
@@ -106,9 +135,23 @@ int getCMD(uint8_t *array, uint8_t size){
 		return CMD_TEST_CLIENT;
 	}
 	
-
 	
-	
+	if(ishello(array, size)){
+		dbg("cmdDebug", "CMD_HELLO\n");
+		return CMD_HELLO;
+	}
+	if(ismsg(array,size)){
+		dbg("cmdDebug", "CMD_MSG\n");
+		return CMD_MSG;
+	}
+	if(isChat(array,size)){
+		dbg("cmdDebug", "CMD_CHAT\n");
+		return CMD_CHATSERVER;
+	}
+	if(islist(array,size)){
+		dbg("cmdDebug", "CMD_LIST\n");
+		return CMD_LIST;	
+	}
 	
 	dbg("cmdDebug", "CMD_ERROR: \"%s\" does not match any known commands.\n", array);
 	return CMD_ERROR;
